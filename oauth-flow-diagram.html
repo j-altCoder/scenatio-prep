@@ -1,0 +1,1622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OAuth Flow — Google & Facebook Auth</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Fira+Code:wght@300;400;500&display=swap');
+
+  :root {
+    --bg: #080c10;
+    --surface: #0d1117;
+    --surface2: #161b22;
+    --border: #21262d;
+    --border2: #30363d;
+    --text: #e6edf3;
+    --muted: #7d8590;
+    --google: #4285F4;
+    --google-dark: #1a56c4;
+    --facebook: #1877F2;
+    --facebook-dark: #0a5dc4;
+    --green: #3fb950;
+    --amber: #d29922;
+    --red: #f85149;
+    --purple: #a371f7;
+    --cyan: #39d3f2;
+    --orange: #f0883e;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Outfit', sans-serif;
+    min-height: 100vh;
+  }
+
+  /* Subtle dot grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: radial-gradient(circle, rgba(255,255,255,0.04) 1px, transparent 1px);
+    background-size: 28px 28px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrap {
+    position: relative;
+    z-index: 1;
+    max-width: 1300px;
+    margin: 0 auto;
+    padding: 48px 24px 100px;
+  }
+
+  /* ─── Header ─── */
+  .header {
+    margin-bottom: 52px;
+    animation: slideUp 0.5s ease both;
+  }
+
+  .header-eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .provider-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+
+  .badge-google { background: rgba(66,133,244,0.15); color: #7ab3ff; border: 1px solid rgba(66,133,244,0.3); }
+  .badge-facebook { background: rgba(24,119,242,0.15); color: #6ab0ff; border: 1px solid rgba(24,119,242,0.3); }
+  .badge-mern { background: rgba(63,185,80,0.1); color: #56d364; border: 1px solid rgba(63,185,80,0.25); }
+
+  .header h1 {
+    font-size: clamp(30px, 4vw, 52px);
+    font-weight: 800;
+    letter-spacing: -1.5px;
+    line-height: 1.05;
+    color: var(--text);
+  }
+
+  .header h1 span.g { color: var(--google); }
+  .header h1 span.f { color: var(--facebook); }
+
+  .header-sub {
+    margin-top: 14px;
+    color: var(--muted);
+    font-size: 15px;
+    font-weight: 400;
+    max-width: 600px;
+    line-height: 1.6;
+  }
+
+  /* ─── Tabs ─── */
+  .tabs {
+    display: flex;
+    gap: 2px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 4px;
+    width: fit-content;
+    margin-bottom: 36px;
+    flex-wrap: wrap;
+    animation: slideUp 0.5s 0.1s ease both;
+  }
+
+  .tab {
+    padding: 9px 22px;
+    border-radius: 7px;
+    font-family: 'Outfit', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    transition: all 0.2s;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+  }
+
+  .tab.active { background: var(--surface); color: var(--text); border: 1px solid var(--border2); }
+  .tab:hover:not(.active) { color: var(--text); }
+
+  /* ─── Panels ─── */
+  .panel { display: none; }
+  .panel.active { display: block; animation: fadeIn 0.3s ease both; }
+
+  /* ─── Section title ─── */
+  .section-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ─── Cards grid ─── */
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  .grid-auto { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 20px; }
+
+  @media (max-width: 768px) {
+    .grid2, .grid3 { grid-template-columns: 1fr; }
+  }
+
+  /* ─── Card ─── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 22px;
+    transition: border-color 0.2s;
+  }
+
+  .card:hover { border-color: var(--border2); }
+
+  .card-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    letter-spacing: 0.3px;
+  }
+
+  .card-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+
+  /* ─── Info rows ─── */
+  .irow {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    gap: 16px;
+  }
+
+  .irow:last-child { border-bottom: none; }
+  .ikey { font-size: 12px; color: var(--muted); flex-shrink: 0; }
+  .ival { font-size: 12px; color: var(--text); text-align: right; line-height: 1.5; }
+
+  /* ─── Pill ─── */
+  .pill {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .pill-green { background: rgba(63,185,80,0.12); color: #56d364; border: 1px solid rgba(63,185,80,0.25); }
+  .pill-red { background: rgba(248,81,73,0.12); color: #ff7b72; border: 1px solid rgba(248,81,73,0.25); }
+  .pill-amber { background: rgba(210,153,34,0.12); color: #e3b341; border: 1px solid rgba(210,153,34,0.25); }
+  .pill-blue { background: rgba(57,211,242,0.1); color: var(--cyan); border: 1px solid rgba(57,211,242,0.2); }
+  .pill-purple { background: rgba(163,113,247,0.1); color: var(--purple); border: 1px solid rgba(163,113,247,0.2); }
+  .pill-google { background: rgba(66,133,244,0.12); color: #7ab3ff; border: 1px solid rgba(66,133,244,0.3); }
+  .pill-facebook { background: rgba(24,119,242,0.12); color: #6ab0ff; border: 1px solid rgba(24,119,242,0.3); }
+  .pill-orange { background: rgba(240,136,62,0.1); color: #f0a050; border: 1px solid rgba(240,136,62,0.25); }
+
+  /* ─── Timeline ─── */
+  .timeline {
+    position: relative;
+    padding-left: 32px;
+  }
+
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 10px;
+    top: 6px;
+    bottom: 6px;
+    width: 2px;
+    border-radius: 2px;
+  }
+
+  .timeline.tl-google::before { background: linear-gradient(to bottom, var(--google), #34a853, #fbbc05, var(--red)); }
+  .timeline.tl-facebook::before { background: linear-gradient(to bottom, var(--facebook), #00c6ff); }
+  .timeline.tl-common::before { background: linear-gradient(to bottom, var(--purple), var(--cyan)); }
+
+  .tl-item {
+    position: relative;
+    margin-bottom: 18px;
+  }
+
+  .tl-item::before {
+    content: '';
+    position: absolute;
+    left: -26px;
+    top: 6px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--bg);
+    border: 2px solid var(--border2);
+  }
+
+  .tl-item.step-ok::before { border-color: var(--green); }
+  .tl-item.step-warn::before { border-color: var(--amber); }
+  .tl-item.step-err::before { border-color: var(--red); }
+  .tl-item.step-info::before { border-color: var(--purple); }
+  .tl-item.step-google::before { border-color: var(--google); background: rgba(66,133,244,0.2); }
+  .tl-item.step-facebook::before { border-color: var(--facebook); background: rgba(24,119,242,0.2); }
+
+  .tl-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .tl-desc {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  .tl-code {
+    font-family: 'Fira Code', monospace;
+    font-size: 11px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin-top: 8px;
+    color: var(--cyan);
+    display: block;
+    line-height: 1.6;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  /* ─── Sequence diagram ─── */
+  .seq-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    margin-bottom: 20px;
+    overflow-x: auto;
+  }
+
+  .seq-wrap h3 {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--text);
+    margin-bottom: 24px;
+    text-transform: uppercase;
+  }
+
+  .seq {
+    min-width: 680px;
+  }
+
+  /* Actor headers */
+  .seq-actors {
+    display: grid;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+
+  .seq-actors.cols-5 { grid-template-columns: repeat(5, 1fr); }
+  .seq-actors.cols-4 { grid-template-columns: repeat(4, 1fr); }
+
+  .actor {
+    text-align: center;
+    padding: 10px 8px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    border: 1px solid;
+  }
+
+  .actor-user    { background: rgba(57,211,242,0.07); border-color: rgba(57,211,242,0.25); color: var(--cyan); }
+  .actor-fe      { background: rgba(63,185,80,0.07); border-color: rgba(63,185,80,0.25); color: var(--green); }
+  .actor-be      { background: rgba(163,113,247,0.07); border-color: rgba(163,113,247,0.25); color: var(--purple); }
+  .actor-google  { background: rgba(66,133,244,0.07); border-color: rgba(66,133,244,0.3); color: #7ab3ff; }
+  .actor-facebook { background: rgba(24,119,242,0.07); border-color: rgba(24,119,242,0.3); color: #6ab0ff; }
+  .actor-db      { background: rgba(210,153,34,0.07); border-color: rgba(210,153,34,0.25); color: var(--amber); }
+  .actor-oauth   { background: rgba(240,136,62,0.07); border-color: rgba(240,136,62,0.25); color: var(--orange); }
+
+  /* Message rows */
+  .seq-body { position: relative; }
+
+  .msg-row {
+    display: grid;
+    position: relative;
+    min-height: 48px;
+    align-items: center;
+  }
+
+  .msg-row.cols-5 { grid-template-columns: repeat(5, 1fr); }
+  .msg-row.cols-4 { grid-template-columns: repeat(4, 1fr); }
+
+  .lifeline-cell {
+    display: flex;
+    justify-content: center;
+    align-items: stretch;
+    height: 100%;
+    min-height: 48px;
+  }
+
+  .lifeline {
+    width: 2px;
+    background: var(--border);
+    min-height: 48px;
+    height: 100%;
+  }
+
+  /* Arrows drawn with CSS */
+  .msg-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    gap: 0;
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  .arrow-line {
+    height: 0;
+    border-bottom: 2px solid;
+  }
+
+  .arrow-line.dashed {
+    border-bottom: 2px dashed;
+    opacity: 0.7;
+  }
+
+  .arrowhead { width: 0; height: 0; }
+  .arrowhead.right { border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-left: 8px solid currentColor; }
+  .arrowhead.left  { border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 8px solid currentColor; }
+
+  .msg-label {
+    position: absolute;
+    font-size: 10px;
+    white-space: nowrap;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    background: var(--bg);
+    padding: 0 4px;
+  }
+
+  .msg-label.above { top: calc(50% - 20px); }
+  .msg-label.below { top: calc(50% + 8px); }
+
+  /* ─── Comparison table ─── */
+  .compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    margin-bottom: 20px;
+  }
+
+  .compare-table th {
+    padding: 12px 16px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .compare-table th:first-child { color: var(--text); }
+
+  .compare-table td {
+    padding: 11px 16px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    vertical-align: top;
+    line-height: 1.5;
+  }
+
+  .compare-table tr:last-child td { border-bottom: none; }
+  .compare-table tr:hover td { background: var(--surface2); }
+
+  .compare-table td:first-child { color: var(--muted); font-weight: 600; font-size: 11px; }
+
+  /* ─── Code block ─── */
+  .code-block {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+    margin-bottom: 16px;
+    overflow-x: auto;
+  }
+
+  .code-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .code-label .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+  pre {
+    font-family: 'Fira Code', monospace;
+    font-size: 11.5px;
+    line-height: 1.8;
+    color: var(--muted);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  pre .kw   { color: var(--purple); }
+  pre .str  { color: var(--green); }
+  pre .fn   { color: var(--cyan); }
+  pre .cmt  { color: #484f58; font-style: italic; }
+  pre .num  { color: var(--amber); }
+  pre .obj  { color: var(--orange); }
+  pre .key  { color: #7ab3ff; }
+
+  /* ─── Warning / note boxes ─── */
+  .note {
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 12px;
+    font-size: 12px;
+    line-height: 1.6;
+    border-left: 3px solid;
+  }
+
+  .note-warn { background: rgba(210,153,34,0.08); border-color: var(--amber); color: #e3b341; }
+  .note-info { background: rgba(163,113,247,0.08); border-color: var(--purple); color: #c3a6ff; }
+  .note-ok   { background: rgba(63,185,80,0.08); border-color: var(--green); color: #7ee787; }
+  .note-err  { background: rgba(248,81,73,0.08); border-color: var(--red); color: #ff9492; }
+
+  .note strong { font-weight: 700; }
+
+  /* ─── Flow diagram (custom) ─── */
+  .flow-diagram {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    margin-bottom: 20px;
+  }
+
+  .flow-diagram h3 {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text);
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .flow-cols {
+    display: grid;
+    grid-template-columns: 1fr 48px 1fr 48px 1fr 48px 1fr;
+    gap: 0;
+    align-items: start;
+  }
+
+  .flow-col { display: flex; flex-direction: column; gap: 10px; }
+
+  .fcol-head {
+    text-align: center;
+    padding: 10px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    border: 1px solid;
+    margin-bottom: 10px;
+  }
+
+  .fbox {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    transition: border-color 0.2s;
+    cursor: default;
+  }
+
+  .fbox:hover { border-color: var(--border2); }
+
+  .fbox-title { font-size: 12px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+  .fbox-desc  { font-size: 11px; color: var(--muted); line-height: 1.5; }
+  .fbox-tag   { display: inline-block; margin-top: 6px; font-size: 10px; padding: 2px 7px; border-radius: 4px; font-weight: 600; }
+
+  .tag-ok      { background: rgba(63,185,80,0.12); color: #56d364; }
+  .tag-warn    { background: rgba(210,153,34,0.12); color: #e3b341; }
+  .tag-err     { background: rgba(248,81,73,0.12); color: #ff7b72; }
+  .tag-info    { background: rgba(163,113,247,0.12); color: var(--purple); }
+  .tag-google  { background: rgba(66,133,244,0.12); color: #7ab3ff; }
+  .tag-facebook { background: rgba(24,119,242,0.12); color: #6ab0ff; }
+  .tag-crypto  { background: rgba(57,211,242,0.1); color: var(--cyan); }
+  .tag-db      { background: rgba(210,153,34,0.12); color: #e3b341; }
+
+  .arrow-connector {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-top: 52px;
+  }
+
+  .arrow-connector svg { width: 44px; height: 20px; }
+
+  /* ─── Animations ─── */
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+  /* Tag strip */
+  .tag-strip { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+
+  /* Two-col compare inside card */
+  .provider-compare {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+
+  .provider-compare > div {
+    background: var(--surface2);
+    padding: 14px 16px;
+  }
+
+  .provider-compare .provider-name {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .provider-compare li {
+    font-size: 11.5px;
+    color: var(--muted);
+    margin-bottom: 6px;
+    padding-left: 14px;
+    position: relative;
+    line-height: 1.5;
+    list-style: none;
+  }
+
+  .provider-compare li::before { content: '·'; position: absolute; left: 0; color: var(--border2); }
+
+  /* Spacer */
+  .gap { height: 20px; }
+
+  /* ── Light theme overrides ───────────────────────────────── */
+  [data-theme="light"] {
+    --bg: #f5f7fa;
+    --surface: #ffffff;
+    --surface2: #f1f5f9;
+    --border: #dde3ee;
+    --border2: #c7d2e0;
+    --text: #0f172a;
+    --muted: #64748b;
+    --google: #1a56c4;
+    --google-dark: #1245a8;
+    --facebook: #0a5dc4;
+    --facebook-dark: #0847a0;
+    --green: #15803d;
+    --amber: #b45309;
+    --red: #dc2626;
+    --purple: #7c3aed;
+    --cyan: #0891b2;
+    --orange: #c2410c;
+  }
+  [data-theme="light"] body { background: var(--bg); }
+  [data-theme="light"] body::before { background-image: radial-gradient(circle,rgba(0,0,0,0.06) 1px,transparent 1px); }
+  [data-theme="light"] .tabs { background: #eef2ff; border-color: #dde3ee; }
+  [data-theme="light"] .tab { background: #eef2ff; color: #64748b; }
+  [data-theme="light"] .tab.active { background: var(--surface2); color: var(--text); border-color: var(--border2); }
+  [data-theme="light"] .tab:hover:not(.active) { color: var(--text); }
+  [data-theme="light"] .card { background: #ffffff; border-color: #dde3ee; }
+  [data-theme="light"] .code-block { background: #f8fafc; border-color: #dde3ee; }
+  [data-theme="light"] .note-info { background: rgba(2,132,199,0.06); border-color: rgba(2,132,199,0.3); color: #0369a1; }
+  [data-theme="light"] .note-warn { background: rgba(180,83,9,0.06); border-color: rgba(180,83,9,0.3); color: #92400e; }
+  [data-theme="light"] .note-danger { background: rgba(220,38,38,0.06); border-color: rgba(220,38,38,0.3); color: #991b1b; }
+  [data-theme="light"] .irow { border-color: #e8edf5; }
+  [data-theme="light"] .ival { color: #1e293b; }
+  [data-theme="light"] .ikey { color: #64748b; }
+  [data-theme="light"] .section-title { color: #475569; border-color: #dde3ee; }
+  [data-theme="light"] .tl-item { background: #ffffff; border-color: #dde3ee; }
+  [data-theme="light"] .tl-item:hover { border-color: #4285F4; box-shadow: 0 0 14px rgba(66,133,244,0.1); }
+  [data-theme="light"] .compare-table th { border-color: #c7d2e0; color: #64748b; }
+  [data-theme="light"] .compare-table td { border-color: #dde3ee; color: #1e293b; }
+  [data-theme="light"] .compare-table tr:hover td { background: #f8fafc; }
+  [data-theme="light"] .fbox { background: #ffffff; border-color: #dde3ee; }
+  [data-theme="light"] pre { color: #475569; }
+  [data-theme="light"] .tl-code { background: #f1f5f9; border-color: #dde3ee; color: #475569; }
+  [data-theme="light"] ::-webkit-scrollbar-track { background: #f1f5f9; }
+  [data-theme="light"] ::-webkit-scrollbar-thumb { background: #cbd5e1; }
+
+  /* ── Toggle button ───────────────────────────────────────── */
+  .theme-btn {
+    position: fixed; top: 18px; right: 20px; z-index: 9999;
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 16px; border-radius: 20px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--surface);
+    color: var(--text); font-family: 'Outfit', sans-serif;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.5px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.2); transition: all 0.2s;
+  }
+  .theme-btn:hover { border-color: var(--google); transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,0.25); }
+  .theme-btn .icon { font-size: 14px; }
+</style>
+</head>
+<body>
+<style>
+.backnav{position:sticky;top:0;z-index:200;display:flex;align-items:center;justify-content:space-between;padding:11px 28px;background:rgba(8,12,16,.88);backdrop-filter:blur(16px);border-bottom:1px solid var(--border2);gap:16px;}
+[data-theme="light"] .backnav{background:rgba(245,247,250,.92);}
+.backnav-left{display:flex;align-items:center;gap:12px;}
+.backnav-home{display:flex;align-items:center;gap:8px;text-decoration:none;font-family:"Outfit",sans-serif;font-size:11px;font-weight:500;letter-spacing:.5px;color:var(--muted);border:1px solid var(--border2);padding:6px 14px;border-radius:8px;transition:all .2s;}
+.backnav-home:hover{color:var(--google);border-color:var(--google);}
+.backnav-sep{color:var(--border2);font-size:14px;}
+.backnav-title{font-family:"Outfit",sans-serif;font-size:11px;color:var(--muted);letter-spacing:.5px;}
+.backnav-pills{display:flex;gap:6px;flex-wrap:wrap;}
+.backnav-pill{text-decoration:none;font-family:"Outfit",sans-serif;font-size:10px;letter-spacing:.4px;padding:4px 10px;border-radius:5px;border:1px solid var(--border2);color:var(--muted);transition:all .15s;white-space:nowrap;}
+.backnav-pill:hover{border-color:var(--google);color:var(--google);}
+.backnav-pill.cur{border-color:var(--google);color:var(--google);background:rgba(66,133,244,.07);}
+@media(max-width:700px){.backnav-pills{display:none;}}
+</style>
+<nav class="backnav">
+  <div class="backnav-left">
+    <a class="backnav-home" href="index.html">← Index</a>
+    <span class="backnav-sep">/</span>
+    <span class="backnav-title">Google &amp; Facebook OAuth</span>
+  </div>
+  <div class="backnav-pills">
+    <a class="backnav-pill " href="auth-flow-diagram.html">Auth</a>
+    <a class="backnav-pill cur" href="oauth-flow-diagram.html">OAuth</a>
+    <a class="backnav-pill " href="rbac-diagram.html">RBAC</a>
+    <a class="backnav-pill " href="scheduler-diagram.html">Scheduler</a>
+    <a class="backnav-pill " href="rag-chat-diagram.html">RAG Chat</a>
+  </div>
+</nav>
+<div class="wrap">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-eyebrow">
+      <span class="provider-badge badge-google">Google OAuth 2.0</span>
+      <span class="provider-badge badge-facebook">Facebook OAuth</span>
+      <span class="provider-badge badge-mern">MERN · Production</span>
+    </div>
+    <h1>
+      <span class="g">Google</span> &amp; <span class="f">Facebook</span><br>OAuth Authentication
+    </h1>
+    <p class="header-sub">
+      Complete implementation guide — strategy, backend flows, database design,
+      account linking, and security for both few users and millions of users.
+    </p>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" onclick="show('strategy')">Strategy</button>
+    <button class="tab" onclick="show('google-flow')">Google Flow</button>
+    <button class="tab" onclick="show('facebook-flow')">Facebook Flow</button>
+    <button class="tab" onclick="show('backend')">Backend Design</button>
+    <button class="tab" onclick="show('linking')">Account Linking</button>
+    <button class="tab" onclick="show('security')">Security</button>
+    <button class="tab" onclick="show('scale')">Scale & Infra</button>
+  </div>
+
+
+  <!-- ═══════════════════ STRATEGY ═══════════════════ -->
+  <div class="panel active" id="tab-strategy">
+
+    <div class="section-title">Approach Comparison</div>
+
+    <div class="note note-info">
+      <strong>Two valid strategies exist.</strong> The choice between them determines your entire architecture. Read this before writing a single line of code.
+    </div>
+
+    <div class="grid2">
+      <div class="card">
+        <div class="card-title">
+          <div class="card-icon" style="background:rgba(63,185,80,0.12)">✦</div>
+          Passport.js (Server-Side OAuth)
+        </div>
+        <div class="tag-strip">
+          <span class="pill pill-green">Recommended</span>
+          <span class="pill pill-blue">Battle-Tested</span>
+        </div>
+        <div class="irow"><span class="ikey">How it works</span><span class="ival">Backend redirects to provider, handles callback, issues your own JWT/cookie</span></div>
+        <div class="irow"><span class="ikey">Libraries</span><span class="ival">passport + passport-google-oauth20 + passport-facebook</span></div>
+        <div class="irow"><span class="ikey">Token stored</span><span class="ival">Your own JWT — never store provider tokens long-term</span></div>
+        <div class="irow"><span class="ikey">CORS complexity</span><span class="ival">Low — all auth happens server-side</span></div>
+        <div class="irow"><span class="ikey">Same domain</span><span class="ival">Simple redirect flow</span></div>
+        <div class="irow"><span class="ikey">Separate domain</span><span class="ival">Use redirect to FE after callback with short-lived code</span></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <div class="card-icon" style="background:rgba(240,136,62,0.1)">◈</div>
+          Frontend SDK (Client-Side OAuth)
+        </div>
+        <div class="tag-strip">
+          <span class="pill pill-orange">Use with Caution</span>
+          <span class="pill pill-amber">Complex Token Handling</span>
+        </div>
+        <div class="irow"><span class="ikey">How it works</span><span class="ival">React uses Google/FB SDK → gets ID token → sends to backend to verify</span></div>
+        <div class="irow"><span class="ikey">Libraries</span><span class="ival">@react-oauth/google, react-facebook-login, google-auth-library</span></div>
+        <div class="irow"><span class="ikey">Token stored</span><span class="ival">ID token exchanged immediately — verify on backend with provider SDK</span></div>
+        <div class="irow"><span class="ikey">CORS complexity</span><span class="ival">Higher — cross-origin POST to your backend</span></div>
+        <div class="irow"><span class="ikey">Same domain</span><span class="ival">Works well</span></div>
+        <div class="irow"><span class="ikey">Separate domain</span><span class="ival">Works but requires careful CORS + token validation setup</span></div>
+      </div>
+    </div>
+
+    <div class="section-title">What OAuth Actually Does</div>
+
+    <div class="grid3">
+      <div class="card">
+        <div class="card-title">What You Get</div>
+        <div class="irow"><span class="ikey">Email</span><span class="ival"><span class="pill pill-green">Always</span></span></div>
+        <div class="irow"><span class="ikey">Name</span><span class="ival"><span class="pill pill-green">Always</span></span></div>
+        <div class="irow"><span class="ikey">Profile photo URL</span><span class="ival"><span class="pill pill-green">Always</span></span></div>
+        <div class="irow"><span class="ikey">Provider User ID</span><span class="ival"><span class="pill pill-green">Always</span></span></div>
+        <div class="irow"><span class="ikey">Email verified flag</span><span class="ival">Google only</span></div>
+        <div class="irow"><span class="ikey">Password</span><span class="ival"><span class="pill pill-red">Never</span></span></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">What You Issue</div>
+        <div class="irow"><span class="ikey">Access Token (JWT)</span><span class="ival">15 min · in memory</span></div>
+        <div class="irow"><span class="ikey">Refresh Token</span><span class="ival">7–30 days · httpOnly cookie</span></div>
+        <div class="irow"><span class="ikey">Provider token</span><span class="ival"><span class="pill pill-red">Do NOT store</span></span></div>
+        <div class="irow"><span class="ikey">Session</span><span class="ival">Stateless JWT or stateful</span></div>
+        <div class="irow"><span class="ikey">Token flow</span><span class="ival">Same as email/password auth after OAuth</span></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Key Principle</div>
+        <div style="font-size: 12px; color: var(--muted); line-height: 1.7; padding-top: 4px;">
+          OAuth replaces <em style="color:var(--text)">only the verification step</em>. After confirming the user's identity via Google/Facebook, your backend issues <em style="color:var(--text)">your own tokens</em> exactly like email/password auth. The rest of the auth system (JWT, refresh rotation, protected routes) is <em style="color: var(--green)">identical</em>.
+        </div>
+        <div style="margin-top: 12px;">
+          <span class="pill pill-purple">OAuth = Identity Verification Only</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title">Provider Comparison</div>
+
+    <div class="provider-compare">
+      <div>
+        <div class="provider-name" style="color: #7ab3ff">Google OAuth 2.0</div>
+        <ul>
+          <li>Uses Google Identity Platform</li>
+          <li>Email always verified (Google verifies)</li>
+          <li>Strategy: passport-google-oauth20</li>
+          <li>Scopes: profile, email</li>
+          <li>Callback: /auth/google/callback</li>
+          <li>Console: console.cloud.google.com</li>
+          <li>Credential: Client ID + Client Secret</li>
+          <li>Token type: id_token (JWT) or access_token</li>
+          <li>People most likely to have account</li>
+          <li>Required: Authorized redirect URIs in console</li>
+        </ul>
+      </div>
+      <div>
+        <div class="provider-name" style="color: #6ab0ff">Facebook OAuth</div>
+        <ul>
+          <li>Uses Facebook Login / Graph API</li>
+          <li>Email not guaranteed (user can deny)</li>
+          <li>Strategy: passport-facebook</li>
+          <li>Scopes: email, public_profile</li>
+          <li>Callback: /auth/facebook/callback</li>
+          <li>Console: developers.facebook.com</li>
+          <li>Credential: App ID + App Secret</li>
+          <li>Token type: access_token (not JWT)</li>
+          <li>Must go through FB App Review for production</li>
+          <li>Required: Valid OAuth redirect URIs in app settings</li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+
+
+  <!-- ═══════════════════ GOOGLE FLOW ═══════════════════ -->
+  <div class="panel" id="tab-google-flow">
+
+    <div class="section-title">Google OAuth — Full Sequence (Passport.js / Server-Side)</div>
+
+    <div class="seq-wrap">
+      <h3>Step-by-step sequence</h3>
+      <div class="seq">
+        <div class="seq-actors cols-5">
+          <div class="actor actor-user">User / Browser</div>
+          <div class="actor actor-fe">React Frontend</div>
+          <div class="actor actor-be">Express Backend</div>
+          <div class="actor actor-google">Google</div>
+          <div class="actor actor-db">MongoDB</div>
+        </div>
+        <!-- We'll use a timeline instead for clarity -->
+      </div>
+    </div>
+
+    <div class="timeline tl-google">
+
+      <div class="tl-item step-google">
+        <div class="tl-title">1 · User clicks "Continue with Google" <span class="pill pill-google">Frontend</span></div>
+        <div class="tl-desc">Button renders on login/register page. On click, browser navigates directly to your backend route — NOT a fetch/axios call. This is a full page navigation.</div>
+        <code class="tl-code">window.location.href = 'https://yourapi.com/api/auth/google'</code>
+      </div>
+
+      <div class="tl-item step-ok">
+        <div class="tl-title">2 · Backend initiates OAuth <span class="pill pill-purple">Backend</span></div>
+        <div class="tl-desc">passport.authenticate('google', { scope: ['profile', 'email'] }) generates the Google consent URL with your Client ID, redirect URI, scopes, and a random state parameter for CSRF protection. Redirects browser to Google.</div>
+        <code class="tl-code">GET https://accounts.google.com/o/oauth2/v2/auth
+  ?client_id=YOUR_CLIENT_ID
+  &redirect_uri=https://yourapi.com/api/auth/google/callback
+  &response_type=code
+  &scope=openid%20email%20profile
+  &state=RANDOM_STATE   ← CSRF protection</code>
+      </div>
+
+      <div class="tl-item step-google">
+        <div class="tl-title">3 · Google Consent Screen <span class="pill pill-google">Google</span></div>
+        <div class="tl-desc">Google shows the permission dialog. User reviews what your app is requesting (email, profile). User clicks Allow. Google sends an authorization code back to your callback URL via browser redirect.</div>
+      </div>
+
+      <div class="tl-item step-ok">
+        <div class="tl-title">4 · Backend receives callback <span class="pill pill-purple">Backend</span></div>
+        <div class="tl-desc">GET /api/auth/google/callback?code=AUTH_CODE&state=STATE. Passport verifies the state matches (CSRF). Then exchanges the code for tokens via server-to-server call to Google.</div>
+        <code class="tl-code">POST https://oauth2.googleapis.com/token
+  grant_type=authorization_code
+  code=AUTH_CODE
+  redirect_uri=YOUR_CALLBACK
+  client_id=CLIENT_ID
+  client_secret=CLIENT_SECRET   ← Never exposed to frontend</code>
+      </div>
+
+      <div class="tl-item step-ok">
+        <div class="tl-title">5 · Google returns profile <span class="pill pill-google">Google → Backend</span></div>
+        <div class="tl-desc">Google responds with access_token, id_token, and the user profile. Passport's verify callback receives: accessToken, refreshToken, profile object containing id, emails[0].value, displayName, photos[0].value.</div>
+      </div>
+
+      <div class="tl-item step-info">
+        <div class="tl-title">6 · Find or Create User <span class="pill pill-purple">Backend → MongoDB</span></div>
+        <div class="tl-desc">This is the critical logic. Check if user exists by googleId OR email. Three cases to handle:</div>
+        <code class="tl-code">Case A: User exists WITH googleId → Login (return existing user)
+Case B: User exists by email but NO googleId → Link accounts (add googleId)
+Case C: No user found → Register (create new user with googleId)</code>
+      </div>
+
+      <div class="tl-item step-warn">
+        <div class="tl-title">7 · Email not verified edge case <span class="pill pill-amber">Security Check</span></div>
+        <div class="tl-desc">Google verifies email ownership during OAuth. The profile object from passport-google-oauth20 does not expose a verified field directly — if the user authenticated via Google, the email is considered verified. For extra safety, check profile.emails[0]._json?.verified_email on the raw profile.</div>
+      </div>
+
+      <div class="tl-item step-ok">
+        <div class="tl-title">8 · Issue your own tokens <span class="pill pill-purple">Backend</span></div>
+        <div class="tl-desc">Same as email/password auth: JWT access token (15min) + opaque refresh token. Store hashed refresh token in MongoDB. Set httpOnly Secure cookie for refresh token.</div>
+      </div>
+
+      <div class="tl-item step-ok">
+        <div class="tl-title">9 · Redirect to Frontend <span class="pill pill-purple">Backend → Frontend</span></div>
+        <div class="tl-desc">For same domain: redirect to /dashboard with cookie set. For separate domains: redirect to frontend with a short-lived one-time code (not the actual token). Frontend exchanges the code for tokens immediately.</div>
+        <code class="tl-code">Same domain:  res.redirect('https://yourapp.com/dashboard')
+Separate:     res.redirect('https://yourapp.com/auth/callback?code=SHORT_LIVED_CODE')</code>
+      </div>
+
+      <div class="tl-item step-ok">
+        <div class="tl-title">10 · Frontend completes auth <span class="pill pill-google">Frontend</span></div>
+        <div class="tl-desc">If separate domain: React reads the short-lived code from URL, immediately POST to /api/auth/exchange-code to get the actual access token. Store in memory. Remove code from URL (replaceState). Auth state is now set.</div>
+      </div>
+
+    </div>
+
+    <div class="gap"></div>
+    <div class="section-title">Google Passport Strategy Configuration</div>
+
+    <div class="code-block">
+      <div class="code-label"><span class="dot" style="background:#7ab3ff"></span> Backend — passport-google-oauth20 setup</div>
+      <pre><span class="kw">passport</span>.<span class="fn">use</span>(<span class="kw">new</span> <span class="fn">GoogleStrategy</span>({
+  <span class="key">clientID</span>:     process.env.<span class="obj">GOOGLE_CLIENT_ID</span>,
+  <span class="key">clientSecret</span>: process.env.<span class="obj">GOOGLE_CLIENT_SECRET</span>,
+  <span class="key">callbackURL</span>:  <span class="str">'/api/auth/google/callback'</span>,
+  <span class="key">scope</span>:        [<span class="str">'profile'</span>, <span class="str">'email'</span>],
+  <span class="key">passReqToCallback</span>: <span class="kw">true</span>
+}, <span class="kw">async</span> (req, accessToken, refreshToken, profile, done) => {
+  <span class="cmt">// NEVER store accessToken or refreshToken from Google long-term</span>
+  <span class="kw">const</span> email    = profile.emails[<span class="num">0</span>].value.<span class="fn">toLowerCase</span>();
+  <span class="kw">const</span> googleId = profile.id;
+  <span class="kw">const</span> avatar   = profile.photos?.[<span class="num">0</span>]?.value;
+
+  <span class="cmt">// Find by googleId first, then fall back to email</span>
+  <span class="kw">let</span> user = <span class="kw">await</span> User.<span class="fn">findOne</span>({ <span class="key">$or</span>: [{ googleId }, { email }] });
+
+  <span class="kw">if</span> (!user) {
+    user = <span class="kw">await</span> User.<span class="fn">create</span>({ email, googleId, avatar, isEmailVerified: <span class="kw">true</span> });
+  } <span class="kw">else if</span> (!user.googleId) {
+    user.googleId = googleId; <span class="cmt">// Link account</span>
+    <span class="kw">await</span> user.<span class="fn">save</span>();
+  }
+
+  <span class="kw">return</span> <span class="fn">done</span>(<span class="kw">null</span>, user);
+}));</pre>
+    </div>
+
+  </div>
+
+
+  <!-- ═══════════════════ FACEBOOK FLOW ═══════════════════ -->
+  <div class="panel" id="tab-facebook-flow">
+
+    <div class="section-title">Facebook OAuth — Full Sequence (Passport.js)</div>
+
+    <div class="timeline tl-facebook">
+
+      <div class="tl-item step-facebook">
+        <div class="tl-title">1 · User clicks "Continue with Facebook" <span class="pill pill-facebook">Frontend</span></div>
+        <div class="tl-desc">Same pattern as Google — full browser navigation, not a fetch call. Navigate to your backend Facebook auth route.</div>
+        <code class="tl-code">window.location.href = 'https://yourapi.com/api/auth/facebook'</code>
+      </div>
+
+      <div class="tl-item step-ok">
+        <div class="tl-title">2 · Backend initiates Facebook OAuth <span class="pill pill-purple">Backend</span></div>
+        <div class="tl-desc">passport.authenticate('facebook', { scope: ['email'] }) generates the Facebook authorization URL. Note: always request email scope explicitly, but user may still deny it.</div>
+        <code class="tl-code">GET https://www.facebook.com/v18.0/dialog/oauth
+  ?client_id=YOUR_APP_ID
+  &redirect_uri=https://yourapi.com/api/auth/facebook/callback
+  &scope=email,public_profile
+  &state=RANDOM_STATE</code>
+      </div>
+
+      <div class="tl-item step-facebook">
+        <div class="tl-title">3 · Facebook Login Dialog <span class="pill pill-facebook">Facebook</span></div>
+        <div class="tl-desc">User logs in to Facebook if not already. Reviews permissions. If user denies email permission, your app will not receive their email — handle this gracefully (ask user to provide email manually).</div>
+      </div>
+
+      <div class="tl-item step-ok">
+        <div class="tl-title">4 · Backend receives callback <span class="pill pill-purple">Backend</span></div>
+        <div class="tl-desc">GET /api/auth/facebook/callback?code=AUTH_CODE. Passport exchanges code for access token via server-to-server call. Facebook access tokens are opaque strings, not JWTs.</div>
+        <code class="tl-code">GET https://graph.facebook.com/v18.0/oauth/access_token
+  ?client_id=APP_ID
+  &client_secret=APP_SECRET
+  &redirect_uri=CALLBACK_URI
+  &code=AUTH_CODE</code>
+      </div>
+
+      <div class="tl-item step-ok">
+        <div class="tl-title">5 · Fetch user profile from Graph API <span class="pill pill-facebook">Facebook → Backend</span></div>
+        <div class="tl-desc">Passport fetches profile from Graph API. You must configure profileFields to get email and picture — they are not returned by default.</div>
+        <code class="tl-code">// In strategy config: profileFields: ['id', 'emails', 'name', 'picture.type(large)']
+<span class="cmt">// Returns: id, email (if granted), first_name, last_name, picture</span></code>
+      </div>
+
+      <div class="tl-item step-warn">
+        <div class="tl-title">6 · Handle missing email <span class="pill pill-amber">Critical Edge Case</span></div>
+        <div class="tl-desc">Facebook users may not have an email associated, or they may deny the permission. You must handle this case: either (a) require them to provide an email, or (b) generate a placeholder and prompt later. Never crash or skip this check.</div>
+        <code class="tl-code"><span class="kw">const</span> email = profile.emails?.[<span class="num">0</span>]?.value;
+<span class="kw">if</span> (!email) {
+  <span class="cmt">// Option A: Store facebookId only, prompt for email after login</span>
+  <span class="cmt">// Option B: Use placeholder fb_{facebookId}@placeholder.com</span>
+  <span class="cmt">// Option C: Return error, ask user to use Google or email auth</span>
+}</code>
+      </div>
+
+      <div class="tl-item step-info">
+        <div class="tl-title">7 · Find or Create User <span class="pill pill-purple">Backend → MongoDB</span></div>
+        <div class="tl-desc">Same logic as Google. Check by facebookId first, then email. Three cases: existing facebook user, existing email user (link), or new user.</div>
+      </div>
+
+      <div class="tl-item step-warn">
+        <div class="tl-title">8 · Facebook App Review Required <span class="pill pill-amber">Production Requirement</span></div>
+        <div class="tl-desc">In development, only you (the app admin) and test users can log in. To allow real users, you must submit your app for Facebook App Review and get it approved. Plan 1–2 weeks for this process. Required before any public launch.</div>
+      </div>
+
+      <div class="tl-item step-ok">
+        <div class="tl-title">9 · Issue tokens & redirect <span class="pill pill-purple">Backend</span></div>
+        <div class="tl-desc">Identical to Google: issue your JWT + refresh token. Redirect to frontend. Same domain vs separate domain handling applies.</div>
+      </div>
+
+    </div>
+
+    <div class="gap"></div>
+    <div class="section-title">Facebook vs Google — Key Differences</div>
+
+    <div class="card">
+      <table class="compare-table">
+        <thead>
+          <tr>
+            <th>Aspect</th>
+            <th style="color:#7ab3ff">Google</th>
+            <th style="color:#6ab0ff">Facebook</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Email guaranteed</td>
+            <td><span class="pill pill-green">Yes</span></td>
+            <td><span class="pill pill-red">No — user can deny</span></td>
+          </tr>
+          <tr>
+            <td>Email verified</td>
+            <td><span class="pill pill-green">Yes — Google verifies</span></td>
+            <td><span class="pill pill-amber">Not guaranteed</span></td>
+          </tr>
+          <tr>
+            <td>Token type</td>
+            <td>id_token (JWT) + access_token</td>
+            <td>access_token (opaque string)</td>
+          </tr>
+          <tr>
+            <td>Profile photo</td>
+            <td>URL in profile object</td>
+            <td>Requires profileFields config</td>
+          </tr>
+          <tr>
+            <td>Production approval</td>
+            <td>No review needed</td>
+            <td><span class="pill pill-red">App Review required</span></td>
+          </tr>
+          <tr>
+            <td>Developer console</td>
+            <td>console.cloud.google.com</td>
+            <td>developers.facebook.com</td>
+          </tr>
+          <tr>
+            <td>Passport strategy</td>
+            <td>passport-google-oauth20</td>
+            <td>passport-facebook</td>
+          </tr>
+          <tr>
+            <td>API version</td>
+            <td>OpenID Connect (stable, no version needed)</td>
+            <td>Graph API v18.0 (changes regularly)</td>
+          </tr>
+          <tr>
+            <td>Unique user ID field</td>
+            <td>profile.id (stable)</td>
+            <td>profile.id (stable)</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+
+  <!-- ═══════════════════ BACKEND DESIGN ═══════════════════ -->
+  <div class="panel" id="tab-backend">
+
+    <div class="section-title">MongoDB User Schema — Extended for OAuth</div>
+
+    <div class="code-block">
+      <div class="code-label"><span class="dot" style="background:var(--amber)"></span> User Document — supports email + Google + Facebook</div>
+      <pre>{
+  <span class="key">email</span>:              <span class="obj">String</span>   <span class="cmt">// indexed, unique, sparse (null if no email from FB)</span>
+  <span class="key">passwordHash</span>:       <span class="obj">String</span>   <span class="cmt">// null for OAuth-only users</span>
+  <span class="key">isEmailVerified</span>:    <span class="obj">Boolean</span>  <span class="cmt">// true for Google users automatically</span>
+
+  <span class="cmt">// ── OAuth Provider IDs ──────────────────────────</span>
+  <span class="key">googleId</span>:           <span class="obj">String</span>   <span class="cmt">// indexed, sparse (null if not linked)</span>
+  <span class="key">facebookId</span>:         <span class="obj">String</span>   <span class="cmt">// indexed, sparse (null if not linked)</span>
+
+  <span class="cmt">// ── Profile ──────────────────────────────────────</span>
+  <span class="key">displayName</span>:        <span class="obj">String</span>
+  <span class="key">avatar</span>:             <span class="obj">String</span>   <span class="cmt">// URL from provider (may expire — consider re-fetching)</span>
+
+  <span class="cmt">// ── Auth Method Tracking ─────────────────────────</span>
+  <span class="key">authMethods</span>: [{            <span class="cmt">// array — user can have multiple</span>
+    <span class="key">provider</span>:  <span class="str">'local' | 'google' | 'facebook'</span>,
+    <span class="key">linkedAt</span>:  <span class="obj">Date</span>
+  }]
+
+  <span class="cmt">// ── Session & Security (same as email/password) ──</span>
+  <span class="key">refreshTokens</span>: [{
+    <span class="key">tokenHash</span>: <span class="obj">String</span>,
+    <span class="key">userAgent</span>: <span class="obj">String</span>,
+    <span class="key">ip</span>:        <span class="obj">String</span>,
+    <span class="key">createdAt</span>: <span class="obj">Date</span>,
+    <span class="key">expiresAt</span>: <span class="obj">Date</span>
+  }]
+  <span class="key">loginAttempts</span>:      <span class="obj">Number</span>
+  <span class="key">lockUntil</span>:          <span class="obj">Date</span>
+  <span class="key">createdAt</span>, <span class="key">updatedAt</span>
+}</pre>
+    </div>
+
+    <div class="note note-warn">
+      <strong>Sparse indexes:</strong> Use sparse: true on googleId, facebookId, and email indexes. This allows multiple documents to have null values without violating the unique constraint — critical since OAuth users may not have email, and email users won't have provider IDs.
+    </div>
+
+    <div class="section-title">Route Architecture</div>
+
+    <div class="code-block">
+      <div class="code-label"><span class="dot" style="background:var(--purple)"></span> Express routes — auth/oauth.routes.js</div>
+      <pre><span class="cmt">// ─── GOOGLE ────────────────────────────────────────────</span>
+<span class="kw">router</span>.<span class="fn">get</span>(<span class="str">'/auth/google'</span>,
+  rateLimit({ windowMs: <span class="num">15</span>*<span class="num">60</span>*<span class="num">1000</span>, max: <span class="num">20</span> }),  <span class="cmt">// rate limit OAuth init</span>
+  passport.<span class="fn">authenticate</span>(<span class="str">'google'</span>, { session: <span class="kw">false</span> })
+);
+
+<span class="kw">router</span>.<span class="fn">get</span>(<span class="str">'/auth/google/callback'</span>,
+  passport.<span class="fn">authenticate</span>(<span class="str">'google'</span>, { session: <span class="kw">false</span>, failureRedirect: <span class="str">'/auth/failed'</span> }),
+  authController.<span class="fn">oauthSuccess</span>
+);
+
+<span class="cmt">// ─── FACEBOOK ──────────────────────────────────────────</span>
+<span class="kw">router</span>.<span class="fn">get</span>(<span class="str">'/auth/facebook'</span>,
+  rateLimit({ windowMs: <span class="num">15</span>*<span class="num">60</span>*<span class="num">1000</span>, max: <span class="num">20</span> }),
+  passport.<span class="fn">authenticate</span>(<span class="str">'facebook'</span>, { session: <span class="kw">false</span>, scope: [<span class="str">'email'</span>] })
+);
+
+<span class="kw">router</span>.<span class="fn">get</span>(<span class="str">'/auth/facebook/callback'</span>,
+  passport.<span class="fn">authenticate</span>(<span class="str">'facebook'</span>, { session: <span class="kw">false</span>, failureRedirect: <span class="str">'/auth/failed'</span> }),
+  authController.<span class="fn">oauthSuccess</span>
+);
+
+<span class="cmt">// ─── SHARED HANDLER ────────────────────────────────────</span>
+<span class="cmt">// oauthSuccess: issues your JWT + refresh token + redirects</span>
+<span class="cmt">// Works identically for both providers after passport verify</span>
+
+<span class="cmt">// ─── SEPARATE DOMAIN CODE EXCHANGE ─────────────────────</span>
+<span class="kw">router</span>.<span class="fn">post</span>(<span class="str">'/auth/exchange-code'</span>,
+  rateLimit({ windowMs: <span class="num">5</span>*<span class="num">60</span>*<span class="num">1000</span>, max: <span class="num">10</span> }),
+  authController.<span class="fn">exchangeOAuthCode</span>
+  <span class="cmt">// code is single-use, expires in 60 seconds, stored in Redis</span>
+);</pre>
+    </div>
+
+    <div class="section-title">Shared oauthSuccess Controller</div>
+
+    <div class="code-block">
+      <div class="code-label"><span class="dot" style="background:var(--cyan)"></span> Controller — same for Google and Facebook</div>
+      <pre><span class="kw">const</span> <span class="fn">oauthSuccess</span> = <span class="kw">async</span> (req, res) => {
+  <span class="kw">const</span> user = req.user; <span class="cmt">// set by Passport verify callback</span>
+
+  <span class="cmt">// Issue access token (JWT, 15 min)</span>
+  <span class="kw">const</span> accessToken = <span class="fn">signAccessToken</span>(user._id);
+
+  <span class="cmt">// Issue opaque refresh token</span>
+  <span class="kw">const</span> rawRefreshToken = crypto.<span class="fn">randomBytes</span>(<span class="num">32</span>).<span class="fn">toString</span>(<span class="str">'hex'</span>);
+  <span class="kw">const</span> tokenHash = <span class="fn">sha256</span>(rawRefreshToken);
+  <span class="kw">await</span> User.<span class="fn">findByIdAndUpdate</span>(user._id, {
+    <span class="key">$push</span>: { refreshTokens: { tokenHash, userAgent: req.headers[<span class="str">'user-agent'</span>], ip: req.ip, expiresAt: ... } }
+  });
+
+  <span class="cmt">// Set httpOnly cookie for refresh token</span>
+  res.<span class="fn">cookie</span>(<span class="str">'refreshToken'</span>, rawRefreshToken, {
+    httpOnly: <span class="kw">true</span>, secure: <span class="kw">true</span>, sameSite: <span class="str">'strict'</span>, maxAge: <span class="num">7</span>*<span class="num">24</span>*<span class="num">60</span>*<span class="num">60</span>*<span class="num">1000</span>
+  });
+
+  <span class="cmt">// Same domain: redirect with cookie set</span>
+  <span class="cmt">// Separate domain: generate short-lived code, redirect to FE</span>
+  <span class="kw">if</span> (SAME_DOMAIN) {
+    <span class="kw">return</span> res.<span class="fn">redirect</span>(<span class="str">`${FRONTEND_URL}/dashboard`</span>);
+  } <span class="kw">else</span> {
+    <span class="kw">const</span> code = crypto.<span class="fn">randomBytes</span>(<span class="num">16</span>).<span class="fn">toString</span>(<span class="str">'hex'</span>);
+    <span class="kw">await</span> redis.<span class="fn">setex</span>(<span class="str">`oauth_code:${code}`</span>, <span class="num">60</span>, JSON.<span class="fn">stringify</span>({ accessToken, userId: user._id }));
+    <span class="kw">return</span> res.<span class="fn">redirect</span>(<span class="str">`${FRONTEND_URL}/auth/callback?code=${code}`</span>);
+  }
+};</pre>
+    </div>
+
+  </div>
+
+
+  <!-- ═══════════════════ ACCOUNT LINKING ═══════════════════ -->
+  <div class="panel" id="tab-linking">
+
+    <div class="section-title">The 4 Account Linking Scenarios</div>
+
+    <div class="note note-info">
+      Account linking is the most complex part of OAuth. A user may try to log in with Google when they already have an email/password account with the same email, or vice versa. You must handle all 4 scenarios gracefully.
+    </div>
+
+    <div class="grid2">
+      <div class="card">
+        <div class="card-title"><span style="color:var(--green)">① New User via OAuth</span></div>
+        <div class="irow"><span class="ikey">Trigger</span><span class="ival">No user found by googleId or email</span></div>
+        <div class="irow"><span class="ikey">Action</span><span class="ival">Create new user with googleId/facebookId</span></div>
+        <div class="irow"><span class="ikey">passwordHash</span><span class="ival">null (OAuth-only user)</span></div>
+        <div class="irow"><span class="ikey">isEmailVerified</span><span class="ival">true (Google verifies)</span></div>
+        <div class="irow"><span class="ikey">authMethods</span><span class="ival">['google'] or ['facebook']</span></div>
+        <div style="margin-top:10px"><span class="pill pill-green">Straightforward</span></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span style="color:var(--cyan)">② Returning OAuth User</span></div>
+        <div class="irow"><span class="ikey">Trigger</span><span class="ival">User found by matching googleId/facebookId</span></div>
+        <div class="irow"><span class="ikey">Action</span><span class="ival">Log in — issue tokens</span></div>
+        <div class="irow"><span class="ikey">Updates</span><span class="ival">Optionally refresh avatar URL</span></div>
+        <div class="irow"><span class="ikey">Edge case</span><span class="ival">Check account is not locked or banned</span></div>
+        <div style="margin-top:10px"><span class="pill pill-blue">Straightforward</span></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span style="color:var(--amber)">③ OAuth email matches existing email/password account</span></div>
+        <div class="irow"><span class="ikey">Trigger</span><span class="ival">User found by email, no googleId on record</span></div>
+        <div class="irow"><span class="ikey">Decision</span><span class="ival">Auto-link or require confirmation?</span></div>
+        <div class="irow"><span class="ikey">Safe approach</span><span class="ival">Auto-link if Google/email is verified</span></div>
+        <div class="irow"><span class="ikey">Action</span><span class="ival">Set googleId on existing user. Push 'google' to authMethods.</span></div>
+        <div class="irow"><span class="ikey">Why safe</span><span class="ival">Google already verified the email — same person</span></div>
+        <div style="margin-top:10px"><span class="pill pill-amber">Requires thought</span></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span style="color:var(--orange)">④ Logged-in user connects a provider</span></div>
+        <div class="irow"><span class="ikey">Trigger</span><span class="ival">User goes to Settings → "Connect Google"</span></div>
+        <div class="irow"><span class="ikey">Flow</span><span class="ival">Same OAuth flow but user is authenticated</span></div>
+        <div class="irow"><span class="ikey">Backend</span><span class="ival">Pass existing userId in state param. After callback, link to that user.</span></div>
+        <div class="irow"><span class="ikey">Check</span><span class="ival">Ensure new googleId isn't already on another account</span></div>
+        <div style="margin-top:10px"><span class="pill pill-orange">Settings flow</span></div>
+      </div>
+    </div>
+
+    <div class="section-title">Decision Tree — Find or Create Logic</div>
+
+    <div class="code-block">
+      <div class="code-label"><span class="dot" style="background:var(--orange)"></span> Backend — complete find-or-create logic</div>
+      <pre><span class="kw">async function</span> <span class="fn">findOrCreateOAuthUser</span>(provider, profile) {
+  <span class="kw">const</span> providerId = <span class="str">`${provider}Id`</span>;        <span class="cmt">// 'googleId' or 'facebookId'</span>
+  <span class="kw">const</span> providerValue = profile.id;
+  <span class="kw">const</span> email = profile.emails?.[<span class="num">0</span>]?.value?.toLowerCase();
+
+  <span class="cmt">// Step 1: Find by provider ID (returning OAuth user)</span>
+  <span class="kw">let</span> user = <span class="kw">await</span> User.<span class="fn">findOne</span>({ [providerId]: providerValue });
+  <span class="kw">if</span> (user) <span class="kw">return</span> { user, action: <span class="str">'login'</span> };
+
+  <span class="cmt">// Step 2: Find by email (account linking)</span>
+  <span class="kw">if</span> (email) {
+    user = <span class="kw">await</span> User.<span class="fn">findOne</span>({ email });
+    <span class="kw">if</span> (user) {
+      user[providerId] = providerValue;
+      user.authMethods.<span class="fn">push</span>({ provider, linkedAt: <span class="kw">new</span> <span class="obj">Date</span>() });
+      <span class="kw">await</span> user.<span class="fn">save</span>();
+      <span class="kw">return</span> { user, action: <span class="str">'linked'</span> };
+    }
+  }
+
+  <span class="cmt">// Step 3: Create new user</span>
+  <span class="kw">const</span> newUser = <span class="kw">await</span> User.<span class="fn">create</span>({
+    email: email || <span class="kw">null</span>,
+    [providerId]: providerValue,
+    displayName: profile.displayName,
+    avatar: profile.photos?.[<span class="num">0</span>]?.value,
+    isEmailVerified: provider === <span class="str">'google'</span>,
+    authMethods: [{ provider, linkedAt: <span class="kw">new</span> <span class="obj">Date</span>() }]
+  });
+  <span class="kw">return</span> { user: newUser, action: <span class="str">'registered'</span> };
+}</pre>
+    </div>
+
+    <div class="note note-warn">
+      <strong>Facebook email edge case:</strong> If Facebook provides no email, create the user without email (null). On first login, prompt the user to add an email via a post-login screen so they can also log in via email/password later, and so you can send them emails.
+    </div>
+
+  </div>
+
+
+  <!-- ═══════════════════ SECURITY ═══════════════════ -->
+  <div class="panel" id="tab-security">
+
+    <div class="section-title">OAuth-Specific Security Requirements</div>
+
+    <div class="grid2">
+      <div class="card">
+        <div class="card-title"><span style="color:var(--red)">🛡 State Parameter (CSRF)</span></div>
+        <div class="irow"><span class="ikey">What</span><span class="ival">Random value generated per OAuth initiation</span></div>
+        <div class="irow"><span class="ikey">Where stored</span><span class="ival">Session or signed cookie before redirect</span></div>
+        <div class="irow"><span class="ikey">Where checked</span><span class="ival">On callback, verify state matches exactly</span></div>
+        <div class="irow"><span class="ikey">If mismatch</span><span class="ival">Reject — possible CSRF attack, log and alert</span></div>
+        <div class="irow"><span class="ikey">Passport handles?</span><span class="ival"><span class="pill pill-green">Yes — automatically</span></span></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span style="color:var(--red)">🛡 Never Store Provider Tokens</span></div>
+        <div class="irow"><span class="ikey">Google accessToken</span><span class="ival"><span class="pill pill-red">Do NOT store</span></span></div>
+        <div class="irow"><span class="ikey">Google refreshToken</span><span class="ival"><span class="pill pill-red">Do NOT store</span></span></div>
+        <div class="irow"><span class="ikey">Facebook accessToken</span><span class="ival"><span class="pill pill-red">Do NOT store</span></span></div>
+        <div class="irow"><span class="ikey">Why</span><span class="ival">You don't need them. Using them long-term is risky. Issue your own tokens.</span></div>
+        <div class="irow"><span class="ikey">Exception</span><span class="ival">Only if you need to call provider APIs (calendar, posts, etc.)</span></div>
+      </div>
+    </div>
+
+    <div class="section-title">Separate Domain Token Handoff Security</div>
+
+    <div class="timeline tl-common">
+
+      <div class="tl-item step-warn">
+        <div class="tl-title">The Problem <span class="pill pill-amber">Separate Domain Only</span></div>
+        <div class="tl-desc">After OAuth callback on your backend, you need to get the access token to the frontend. You cannot pass a JWT in a redirect URL query param — it would be visible in browser history, logs, and referer headers.</div>
+      </div>
+
+      <div class="tl-item step-ok">
+        <div class="tl-title">Solution: Short-Lived Exchange Code <span class="pill pill-green">Recommended</span></div>
+        <div class="tl-desc">Generate a random one-time code (not the JWT). Store it in Redis with 60-second TTL. Redirect to frontend with the code. Frontend POSTs code to /auth/exchange-code. Backend validates, returns real tokens. Code is deleted after first use.</div>
+        <code class="tl-code"><span class="cmt">// Backend: generate code, store in Redis</span>
+<span class="kw">const</span> code = crypto.<span class="fn">randomBytes</span>(<span class="num">16</span>).<span class="fn">toString</span>(<span class="str">'hex'</span>);
+<span class="kw">await</span> redis.<span class="fn">setex</span>(<span class="str">`oauth_code:${code}`</span>, <span class="num">60</span>, userId);
+res.<span class="fn">redirect</span>(<span class="str">`${FRONTEND_URL}/auth/callback?code=${code}`</span>);
+
+<span class="cmt">// Frontend: exchange code immediately</span>
+<span class="kw">const</span> { accessToken } = <span class="kw">await</span> axios.<span class="fn">post</span>(<span class="str">'/auth/exchange-code'</span>, { code });
+window.history.<span class="fn">replaceState</span>({}, <span class="str">''</span>, <span class="str">'/dashboard'</span>); <span class="cmt">// remove code from URL</span></code>
+      </div>
+
+      <div class="tl-item step-err">
+        <div class="tl-title">Never Do This <span class="pill pill-red">Security Violation</span></div>
+        <div class="tl-desc">Do not pass the actual JWT or refresh token in the redirect URL. Do not use localStorage for tokens. Do not use fragment (#) to "hide" tokens — they can still be accessed by JS and third-party scripts.</div>
+        <code class="tl-code"><span class="cmt">// ❌ WRONG — token in URL</span>
+res.<span class="fn">redirect</span>(<span class="str">`${FRONTEND_URL}/callback?token=ACTUAL_JWT`</span>);
+
+<span class="cmt">// ❌ WRONG — token in localStorage</span>
+localStorage.<span class="fn">setItem</span>(<span class="str">'token'</span>, accessToken);</code>
+      </div>
+
+      <div class="tl-item step-ok">
+        <div class="tl-title">Allowed Redirect Origins <span class="pill pill-purple">Config</span></div>
+        <div class="tl-desc">Whitelist exact callback URLs in both Google Console and Facebook App settings. Your backend should validate the redirect_uri exactly. Never use wildcard domains in production OAuth configurations.</div>
+      </div>
+
+    </div>
+
+    <div class="section-title">Environment Variables Required</div>
+
+    <div class="code-block">
+      <div class="code-label"><span class="dot" style="background:var(--green)"></span> .env — never commit these</div>
+      <pre><span class="cmt"># Google OAuth</span>
+<span class="key">GOOGLE_CLIENT_ID</span>=<span class="str">xxxx.apps.googleusercontent.com</span>
+<span class="key">GOOGLE_CLIENT_SECRET</span>=<span class="str">GOCSPX-xxxxxxxxxxxx</span>
+<span class="key">GOOGLE_CALLBACK_URL</span>=<span class="str">https://api.yourapp.com/api/auth/google/callback</span>
+
+<span class="cmt"># Facebook OAuth</span>
+<span class="key">FACEBOOK_APP_ID</span>=<span class="str">123456789</span>
+<span class="key">FACEBOOK_APP_SECRET</span>=<span class="str">xxxxxxxxxxxxxxxxxxxx</span>
+<span class="key">FACEBOOK_CALLBACK_URL</span>=<span class="str">https://api.yourapp.com/api/auth/facebook/callback</span>
+
+<span class="cmt"># Frontend URL for redirects</span>
+<span class="key">FRONTEND_URL</span>=<span class="str">https://yourapp.com</span>
+
+<span class="cmt"># Redis for short-lived codes (separate domain only)</span>
+<span class="key">REDIS_URL</span>=<span class="str">redis://localhost:6379</span></pre>
+    </div>
+
+  </div>
+
+
+  <!-- ═══════════════════ SCALE & INFRA ═══════════════════ -->
+  <div class="panel" id="tab-scale">
+
+    <div class="section-title">Scaling Considerations</div>
+
+    <div class="note note-ok">
+      <strong>Good news:</strong> OAuth itself doesn't add significant backend load. Google and Facebook handle the heavy lifting. The main scaling concerns are around session/token storage and rate limiting.
+    </div>
+
+    <div class="card" style="margin-bottom:20px">
+      <table class="compare-table">
+        <thead>
+          <tr>
+            <th>Concern</th>
+            <th>Few Users</th>
+            <th>Millions of Users</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Passport sessions</td>
+            <td>session: false (stateless JWT) — works fine</td>
+            <td>Same — avoid express-session for OAuth, use JWT</td>
+          </tr>
+          <tr>
+            <td>Short-lived OAuth codes</td>
+            <td>Redis single instance (or even in-memory Map)</td>
+            <td>Redis Cluster — codes expire in 60s so memory is minimal</td>
+          </tr>
+          <tr>
+            <td>Refresh token lookup</td>
+            <td>MongoDB query (indexed)</td>
+            <td>Add Redis cache layer — lookup before hitting MongoDB</td>
+          </tr>
+          <tr>
+            <td>Rate limiting OAuth routes</td>
+            <td>express-rate-limit in-memory</td>
+            <td>express-rate-limit with Redis store (shared across instances)</td>
+          </tr>
+          <tr>
+            <td>Provider API calls</td>
+            <td>Handled by Passport — no extra load</td>
+            <td>Same — Google/FB absorb the load on their end</td>
+          </tr>
+          <tr>
+            <td>Account linking queries</td>
+            <td>findOne with $or — fast with sparse indexes</td>
+            <td>Same — sparse compound index on email + googleId + facebookId</td>
+          </tr>
+          <tr>
+            <td>OAuth callback handler</td>
+            <td>Single Node process</td>
+            <td>Horizontally scale — stateless JWT means any instance can handle</td>
+          </tr>
+          <tr>
+            <td>Facebook App Review</td>
+            <td>Test users only (no review needed)</td>
+            <td>Submit for App Review — required for public users</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section-title">Required Packages Summary</div>
+
+    <div class="grid3">
+      <div class="card">
+        <div class="card-title"><span style="color:var(--purple)">Backend</span></div>
+        <div class="irow"><span class="ikey">Core OAuth</span><span class="ival">passport</span></div>
+        <div class="irow"><span class="ikey">Google</span><span class="ival">passport-google-oauth20</span></div>
+        <div class="irow"><span class="ikey">Facebook</span><span class="ival">passport-facebook</span></div>
+        <div class="irow"><span class="ikey">JWT</span><span class="ival">jsonwebtoken</span></div>
+        <div class="irow"><span class="ikey">Session (temp)</span><span class="ival">express-session (OAuth flow only)</span></div>
+        <div class="irow"><span class="ikey">Code store</span><span class="ival">ioredis</span></div>
+        <div class="irow"><span class="ikey">Rate limit</span><span class="ival">express-rate-limit</span></div>
+        <div class="irow"><span class="ikey">Security</span><span class="ival">helmet, cors</span></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span style="color:var(--green)">Frontend</span></div>
+        <div class="irow"><span class="ikey">HTTP</span><span class="ival">axios (withCredentials:true)</span></div>
+        <div class="irow"><span class="ikey">State</span><span class="ival">Zustand / React Context</span></div>
+        <div class="irow"><span class="ikey">Routing</span><span class="ival">react-router-dom</span></div>
+        <div class="irow"><span class="ikey">OAuth trigger</span><span class="ival">window.location.href — no SDK needed</span></div>
+        <div class="irow"><span class="ikey">Code exchange</span><span class="ival">useEffect on /auth/callback route</span></div>
+        <div class="irow"><span class="ikey">Token storage</span><span class="ival">Memory only (same as email auth)</span></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span style="color:var(--amber)">Console Setup</span></div>
+        <div class="irow"><span class="ikey">Google</span><span class="ival">Create OAuth 2.0 credentials in GCP Console</span></div>
+        <div class="irow"><span class="ikey">Google scopes</span><span class="ival">profile, email (no sensitive scopes = no review)</span></div>
+        <div class="irow"><span class="ikey">Facebook</span><span class="ival">Create app → Facebook Login product</span></div>
+        <div class="irow"><span class="ikey">FB review</span><span class="ival">Required for public launch</span></div>
+        <div class="irow"><span class="ikey">Both</span><span class="ival">Add all redirect URIs (dev + prod)</span></div>
+        <div class="irow"><span class="ikey">Domains</span><span class="ival">Verify domain ownership for both</span></div>
+      </div>
+    </div>
+
+    <div class="section-title">Frontend — OAuth Button Pattern</div>
+
+    <div class="code-block">
+      <div class="code-label"><span class="dot" style="background:var(--green)"></span> React — OAuth trigger (no SDK required)</div>
+      <pre><span class="cmt">// Simple, secure, works for both providers</span>
+<span class="kw">const</span> <span class="fn">handleGoogleAuth</span> = () => {
+  window.location.href = <span class="str">`${import.meta.env.VITE_API_URL}/api/auth/google`</span>;
+};
+
+<span class="kw">const</span> <span class="fn">handleFacebookAuth</span> = () => {
+  window.location.href = <span class="str">`${import.meta.env.VITE_API_URL}/api/auth/facebook`</span>;
+};
+
+<span class="cmt">// /auth/callback page — handles return from OAuth (separate domain)</span>
+<span class="kw">const</span> OAuthCallback = () => {
+  <span class="kw">const</span> navigate = useNavigate();
+  <span class="kw">const</span> { setAccessToken } = useAuthStore();
+
+  useEffect(() => {
+    <span class="kw">const</span> code = <span class="kw">new</span> URLSearchParams(window.location.search).<span class="fn">get</span>(<span class="str">'code'</span>);
+    <span class="kw">if</span> (!code) { navigate(<span class="str">'/login'</span>); <span class="kw">return</span>; }
+
+    axios.<span class="fn">post</span>(<span class="str">'/api/auth/exchange-code'</span>, { code }, { withCredentials: <span class="kw">true</span> })
+      .<span class="fn">then</span>(({ data }) => {
+        <span class="fn">setAccessToken</span>(data.accessToken); <span class="cmt">// store in memory</span>
+        window.history.<span class="fn">replaceState</span>({}, <span class="str">''</span>, <span class="str">'/dashboard'</span>); <span class="cmt">// remove code from URL</span>
+        navigate(<span class="str">'/dashboard'</span>);
+      })
+      .<span class="fn">catch</span>(() => navigate(<span class="str">'/login?error=oauth_failed'</span>));
+  }, []);
+
+  <span class="kw">return</span> &lt;LoadingSpinner /&gt;;
+};</pre>
+    </div>
+
+  </div>
+
+</div>
+
+<button class="theme-btn" onclick="toggleTheme()" id="themeBtn">
+  <span class="icon">🌙</span><span id="themeLabel">Light Mode</span>
+</button>
+<script>
+  function show(name) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelector(`[onclick="show('${name}')"]`).classList.add('active');
+    document.getElementById(`tab-${name}`).classList.add('active');
+  }
+  function toggleTheme() {
+    const html = document.documentElement;
+    const isLight = html.getAttribute('data-theme') === 'light';
+    html.setAttribute('data-theme', isLight ? 'dark' : 'light');
+    document.getElementById('themeLabel').textContent = isLight ? 'Light Mode' : 'Dark Mode';
+    document.querySelector('#themeBtn .icon').textContent = isLight ? '🌙' : '☀️';
+    localStorage.setItem('theme', isLight ? 'dark' : 'light');
+  }
+  (function() {
+    const saved = localStorage.getItem('theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', saved);
+    if (saved === 'light') {
+      document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('themeLabel').textContent = 'Dark Mode';
+        document.querySelector('#themeBtn .icon').textContent = '☀️';
+      });
+    }
+  })();
+</script>
+</body>
+</html>

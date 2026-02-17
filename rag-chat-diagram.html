@@ -1,0 +1,1032 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAG Chat API — LangChain + Azure OpenAI</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&family=JetBrains+Mono:wght@300;400;500&display=swap');
+:root{
+  --bg:#030712;--s1:#080f1e;--s2:#0d1629;--bd:#132040;--bd2:#1e3560;
+  --tx:#e2e8f0;--mu:#4a6080;--so:#6a88b0;
+  --az:#0078d4;--lc:#1c7c54;--ok:#10b981;--warn:#f59e0b;--err:#ef4444;
+  --em:#7c3aed;--vec:#06b6d4;--ret:#f97316;--gen:#ec4899;
+  --a1:#3b82f6;--a2:#8b5cf6;--a3:#06b6d4;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--tx);font-family:'Figtree',sans-serif;min-height:100vh;}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 70% 40% at 30% 0%,rgba(0,120,212,.06),transparent),radial-gradient(ellipse 60% 40% at 80% 100%,rgba(124,58,237,.05),transparent);pointer-events:none;z-index:0;}
+
+.wrap{position:relative;z-index:1;max-width:1380px;margin:0 auto;padding:48px 24px 100px;}
+
+/* Header */
+.header{margin-bottom:52px;animation:riseUp .6s cubic-bezier(.16,1,.3,1) both;}
+.eyebrow{display:flex;align-items:center;gap:8px;margin-bottom:18px;flex-wrap:wrap;}
+.badge{font-size:10px;font-weight:600;letter-spacing:2.5px;text-transform:uppercase;padding:5px 12px;border-radius:4px;border:1px solid;font-family:'JetBrains Mono',monospace;}
+.b-az{color:#60a5fa;border-color:rgba(59,130,246,.3);background:rgba(59,130,246,.08);}
+.b-lc{color:#4ade80;border-color:rgba(74,222,128,.3);background:rgba(74,222,128,.08);}
+.b-m{color:var(--mu);border-color:var(--bd);background:transparent;}
+h1{font-size:clamp(28px,4.2vw,54px);font-weight:900;letter-spacing:-1.5px;line-height:1.05;}
+h1 .hl{background:linear-gradient(135deg,#60a5fa 0%,#a78bfa 50%,#06b6d4 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.sub{margin-top:14px;font-size:14px;color:var(--mu);line-height:1.7;max-width:620px;}
+
+/* Tabs */
+.tabs{display:flex;gap:1px;margin-bottom:36px;background:var(--bd);border-radius:8px;padding:1px;width:fit-content;max-width:100%;overflow-x:auto;animation:riseUp .6s .07s cubic-bezier(.16,1,.3,1) both;}
+.tab{padding:10px 20px;border-radius:7px;font-family:'Figtree',sans-serif;font-size:12.5px;font-weight:700;cursor:pointer;border:none;background:var(--s1);color:var(--mu);transition:all .18s;white-space:nowrap;letter-spacing:.3px;}
+.tab.active{background:var(--s2);color:var(--tx);border:1px solid var(--bd2);}
+.tab:hover:not(.active){color:var(--tx);background:var(--s2);}
+
+.panel{display:none;}.panel.active{display:block;animation:fadeIn .3s ease both;}
+
+.sl{font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--mu);margin-bottom:16px;display:flex;align-items:center;gap:12px;font-family:'JetBrains Mono',monospace;}
+.sl::after{content:'';flex:1;height:1px;background:var(--bd);}
+
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:16px;}
+@media(max-width:900px){.g2,.g3{grid-template-columns:1fr 1fr;}}
+@media(max-width:600px){.g2,.g3{grid-template-columns:1fr;}}
+
+.card{background:var(--s1);border:1px solid var(--bd);border-radius:12px;padding:18px 20px;transition:border-color .2s;}
+.card:hover{border-color:var(--bd2);}
+.ct{font-size:12px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;margin-bottom:14px;display:flex;align-items:center;gap:10px;}
+.cd{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+
+.ir{display:flex;justify-content:space-between;align-items:flex-start;padding:7px 0;border-bottom:1px solid var(--bd);gap:12px;}
+.ir:last-child{border-bottom:none;}
+.ik{font-size:11px;color:var(--mu);flex-shrink:0;font-weight:500;}
+.iv{font-size:11px;color:var(--tx);text-align:right;line-height:1.5;}
+
+.pill{display:inline-block;padding:2px 10px;border-radius:4px;font-size:10px;font-weight:700;border:1px solid;letter-spacing:.5px;font-family:'JetBrains Mono',monospace;}
+.pg{color:#4ade80;border-color:rgba(74,222,128,.3);background:rgba(74,222,128,.07);}
+.pr{color:#f87171;border-color:rgba(248,113,113,.3);background:rgba(248,113,113,.07);}
+.pa{color:#fbbf24;border-color:rgba(251,191,36,.3);background:rgba(251,191,36,.07);}
+.pb{color:#60a5fa;border-color:rgba(96,165,250,.3);background:rgba(96,165,250,.07);}
+.pp{color:#a78bfa;border-color:rgba(167,139,250,.3);background:rgba(167,139,250,.07);}
+.pc{color:#22d3ee;border-color:rgba(34,211,238,.3);background:rgba(34,211,238,.07);}
+
+.note{padding:13px 17px;border-radius:8px;font-size:12px;line-height:1.75;border-left:3px solid;margin-bottom:16px;}
+.ni{background:rgba(59,130,246,.07);border-color:var(--a1);color:#93c5fd;}
+.nw{background:rgba(245,158,11,.07);border-color:var(--warn);color:#fcd34d;}
+.no{background:rgba(16,185,129,.07);border-color:var(--ok);color:#6ee7b7;}
+.ne{background:rgba(239,68,68,.07);border-color:var(--err);color:#fca5a5;}
+
+.cb{background:var(--s2);border:1px solid var(--bd);border-radius:10px;padding:18px 22px;margin-bottom:16px;overflow-x:auto;}
+.ch{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--mu);margin-bottom:12px;display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;}
+pre{font-family:'JetBrains Mono',monospace;font-size:11.5px;line-height:1.9;color:var(--mu);white-space:pre-wrap;word-break:break-word;}
+pre .kw{color:#c084fc;}pre .str{color:#86efac;}pre .fn{color:#67e8f9;}pre .cm{color:#1e3055;font-style:italic;}
+pre .num{color:#fcd34d;}pre .obj{color:#fb923c;}pre .key{color:#93c5fd;}pre .dec{color:#f9a8d4;}
+
+.tl{position:relative;padding-left:30px;margin-bottom:16px;}
+.tl::before{content:'';position:absolute;left:8px;top:6px;bottom:6px;width:2px;border-radius:2px;background:linear-gradient(to bottom,var(--a1),var(--a2),var(--a3));}
+.tli{position:relative;margin-bottom:22px;}
+.tli::before{content:'';position:absolute;left:-24px;top:5px;width:10px;height:10px;border-radius:50%;background:var(--bg);border:2px solid var(--bd2);}
+.tli.so::before{border-color:var(--ok);}.tli.se::before{border-color:var(--err);}.tli.sw::before{border-color:var(--warn);}.tli.si::before{border-color:var(--a1);}.tli.sp::before{border-color:var(--a2);}
+.tlt{font-size:13px;font-weight:800;color:var(--tx);margin-bottom:5px;display:flex;align-items:center;flex-wrap:wrap;gap:8px;}
+.tld{font-size:12px;color:var(--mu);line-height:1.75;}
+
+/* Pipeline visual */
+.pipeline{display:flex;align-items:stretch;overflow-x:auto;margin-bottom:16px;gap:0;padding:4px 0;}
+.ps{display:flex;flex-direction:column;align-items:center;min-width:130px;flex:1;}
+.pb2{background:var(--s1);border:1px solid var(--bd);border-radius:10px;padding:16px 10px;text-align:center;width:100%;line-height:1.5;height:100%;transition:border-color .2s;}
+.pb2:hover{border-color:var(--bd2);}
+.pi{font-size:22px;margin-bottom:8px;}
+.pt{font-size:10px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;margin-bottom:4px;}
+.pd{font-size:10px;color:var(--mu);}
+.pa2{display:flex;align-items:center;padding:0 3px;min-width:24px;color:var(--bd2);font-size:14px;flex-shrink:0;}
+
+/* RAG flow diagram */
+.rag-flow{display:grid;gap:12px;margin-bottom:16px;}
+.rf-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.rf-box{padding:10px 16px;border-radius:8px;font-size:11.5px;font-weight:700;border:1px solid;white-space:nowrap;min-width:120px;text-align:center;letter-spacing:.3px;}
+.rf-arrow{color:var(--bd2);font-size:14px;flex-shrink:0;}
+.rf-label{font-size:10px;color:var(--mu);font-family:'JetBrains Mono',monospace;letter-spacing:.5px;}
+
+/* Decision box */
+.decision{background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.25);border-radius:10px;padding:18px 20px;margin-bottom:16px;}
+.decision-title{font-size:12px;font-weight:800;color:#fcd34d;letter-spacing:.5px;margin-bottom:12px;text-transform:uppercase;}
+
+/* Comparison table */
+.ctbl{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px;}
+.ctbl th{padding:11px 14px;text-align:left;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--mu);border-bottom:1px solid var(--bd2);font-family:'JetBrains Mono',monospace;}
+.ctbl td{padding:10px 14px;border-bottom:1px solid var(--bd);color:var(--tx);vertical-align:top;line-height:1.5;}
+.ctbl td:first-child{color:var(--mu);font-size:11px;font-weight:600;}
+.ctbl tr:last-child td{border-bottom:none;}.ctbl tr:hover td{background:var(--s2);}
+
+.d8{width:8px;height:8px;border-radius:50%;display:inline-block;}
+code.ic{font-family:'JetBrains Mono',monospace;font-size:11px;background:var(--s2);border:1px solid var(--bd);border-radius:3px;padding:1px 6px;color:#67e8f9;}
+
+@keyframes riseUp{from{opacity:0;transform:translateY(24px);}to{opacity:1;transform:translateY(0);}}
+@keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+::-webkit-scrollbar{width:5px;height:5px;}::-webkit-scrollbar-track{background:var(--bg);}::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:3px;}
+
+/* ── Light theme ─────────────────────────────────────────── */
+[data-theme="light"]{
+  --bg:#f4f7fb;--s1:#ffffff;--s2:#eef3f9;--bd:#dde6f0;--bd2:#c5d3e0;
+  --tx:#0f172a;--mu:#64748b;--so:#94a3b8;
+  --az:#0062ad;--lc:#166534;--ok:#15803d;--warn:#b45309;--err:#dc2626;
+  --em:#7c3aed;--vec:#0891b2;--ret:#c2410c;--gen:#be185d;
+  --a1:#2563eb;--a2:#7c3aed;--a3:#0891b2;
+}
+[data-theme="light"] body{background:var(--bg);}
+[data-theme="light"] body::before{background:radial-gradient(ellipse 70% 40% at 30% 0%,rgba(0,98,173,.05),transparent),radial-gradient(ellipse 60% 40% at 80% 100%,rgba(124,58,237,.04),transparent);}
+[data-theme="light"] .card{background:var(--s1);}
+[data-theme="light"] .cb{background:var(--s2);}
+[data-theme="light"] .note.ni{background:rgba(37,99,235,0.06);border-color:rgba(37,99,235,0.3);color:#1d4ed8;}
+[data-theme="light"] .note.nw{background:rgba(180,83,9,0.06);border-color:rgba(180,83,9,0.3);color:#92400e;}
+[data-theme="light"] .note.no{background:rgba(21,128,61,0.06);border-color:rgba(21,128,61,0.3);color:#14532d;}
+[data-theme="light"] .note.ne{background:rgba(220,38,38,0.06);border-color:rgba(220,38,38,0.3);color:#991b1b;}
+[data-theme="light"] pre{color:#334155;}
+[data-theme="light"] code.ic{background:var(--s2);border-color:var(--bd);color:#0369a1;}
+[data-theme="light"] .tabs{background:var(--bd);}
+[data-theme="light"] .tab{background:var(--s2);color:var(--mu);}
+[data-theme="light"] .tab.active{background:var(--s1);color:var(--tx);border-color:var(--bd2);}
+[data-theme="light"] .pipeline .pb2{background:var(--s1);}
+[data-theme="light"] .decision{background:rgba(180,83,9,0.04);border-color:rgba(180,83,9,0.2);}
+[data-theme="light"] .decision-title{color:#92400e;}
+[data-theme="light"] .ctbl th{border-color:var(--bd2);color:var(--mu);}
+[data-theme="light"] .ctbl td{border-color:var(--bd);color:var(--tx);}
+[data-theme="light"] .ctbl tr:hover td{background:var(--s2);}
+[data-theme="light"] .sl{color:var(--mu);}
+[data-theme="light"] .sl::after{background:var(--bd);}
+[data-theme="light"] .badge.b-az{color:#0062ad;border-color:rgba(0,98,173,0.3);background:rgba(0,98,173,0.08);}
+[data-theme="light"] .badge.b-lc{color:#166534;border-color:rgba(22,101,52,0.3);background:rgba(22,101,52,0.08);}
+[data-theme="light"] .badge.b-m{color:var(--mu);border-color:var(--bd);}
+[data-theme="light"] ::-webkit-scrollbar-track{background:#f1f5f9;}
+[data-theme="light"] ::-webkit-scrollbar-thumb{background:#cbd5e1;}
+
+/* ── Toggle button ───────────────────────────────────────── */
+.theme-btn{position:fixed;top:18px;right:20px;z-index:9999;display:flex;align-items:center;gap:8px;padding:8px 16px;border-radius:20px;cursor:pointer;border:1px solid var(--bd);background:var(--s1);color:var(--tx);font-family:'Figtree',sans-serif;font-size:11px;font-weight:700;letter-spacing:0.5px;box-shadow:0 2px 12px rgba(0,0,0,0.2);transition:all 0.2s;}
+.theme-btn:hover{border-color:var(--az);transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,0,0,0.25);}
+</style>
+</head>
+<body>
+<style>
+.backnav{position:sticky;top:0;z-index:200;display:flex;align-items:center;justify-content:space-between;padding:11px 28px;background:rgba(3,7,18,.88);backdrop-filter:blur(16px);border-bottom:1px solid var(--bd);gap:16px;}
+[data-theme="light"] .backnav{background:rgba(244,247,251,.92);}
+.backnav-left{display:flex;align-items:center;gap:12px;}
+.backnav-home{display:flex;align-items:center;gap:8px;text-decoration:none;font-family:"Figtree",sans-serif;font-size:11px;font-weight:500;letter-spacing:.5px;color:var(--mu);border:1px solid var(--bd);padding:6px 14px;border-radius:8px;transition:all .2s;}
+.backnav-home:hover{color:var(--az);border-color:var(--az);}
+.backnav-sep{color:var(--bd);font-size:14px;}
+.backnav-title{font-family:"Figtree",sans-serif;font-size:11px;color:var(--mu);letter-spacing:.5px;}
+.backnav-pills{display:flex;gap:6px;flex-wrap:wrap;}
+.backnav-pill{text-decoration:none;font-family:"Figtree",sans-serif;font-size:10px;letter-spacing:.4px;padding:4px 10px;border-radius:5px;border:1px solid var(--bd);color:var(--mu);transition:all .15s;white-space:nowrap;}
+.backnav-pill:hover{border-color:var(--az);color:var(--az);}
+.backnav-pill.cur{border-color:var(--az);color:var(--az);background:rgba(0,120,212,.07);}
+@media(max-width:700px){.backnav-pills{display:none;}}
+</style>
+<nav class="backnav">
+  <div class="backnav-left">
+    <a class="backnav-home" href="index.html">← Index</a>
+    <span class="backnav-sep">/</span>
+    <span class="backnav-title">RAG Chat — LangChain &amp; Azure</span>
+  </div>
+  <div class="backnav-pills">
+    <a class="backnav-pill " href="auth-flow-diagram.html">Auth</a>
+    <a class="backnav-pill " href="oauth-flow-diagram.html">OAuth</a>
+    <a class="backnav-pill " href="rbac-diagram.html">RBAC</a>
+    <a class="backnav-pill " href="scheduler-diagram.html">Scheduler</a>
+    <a class="backnav-pill cur" href="rag-chat-diagram.html">RAG Chat</a>
+  </div>
+</nav>
+<button class="theme-btn" onclick="toggleTheme()" id="themeBtn">
+  <span class="icon">🌙</span><span id="themeLabel">Light Mode</span>
+</button>
+<div class="wrap">
+
+<!-- Header -->
+<div class="header">
+  <div class="eyebrow">
+    <span class="badge b-az">Azure OpenAI</span>
+    <span class="badge b-lc">LangChain</span>
+    <span class="badge b-m">RAG · CSV/PDF · MERN</span>
+  </div>
+  <h1>Chat API with<br><span class="hl">RAG — LangChain &amp; Azure OpenAI</span></h1>
+  <p class="sub">Upload a CSV or PDF of Q&amp;A pairs. When a user asks a question, semantically search the knowledge base. If matched — answer from the document. If not — say unknown and provide a contact number.</p>
+</div>
+
+<!-- Tabs -->
+<div class="tabs">
+  <button class="tab active" onclick="go('overview')">Overview</button>
+  <button class="tab" onclick="go('rag')">RAG Pipeline</button>
+  <button class="tab" onclick="go('ingestion')">Ingestion</button>
+  <button class="tab" onclick="go('chat')">Chat Flow</button>
+  <button class="tab" onclick="go('langchain')">LangChain Code</button>
+  <button class="tab" onclick="go('frontend')">Frontend</button>
+  <button class="tab" onclick="go('schema')">Schema &amp; Config</button>
+  <button class="tab" onclick="go('scale')">Scale</button>
+</div>
+
+
+<!-- ═══════════ OVERVIEW ═══════════ -->
+<div class="panel active" id="tab-overview">
+<div class="sl">What We Are Building</div>
+
+<div class="note ni"><strong>RAG</strong> (Retrieval-Augmented Generation): instead of relying purely on the LLM's training data, we store your Q&amp;A document as vector embeddings in a vector store. When a user asks a question, we embed their query, search for similar content, and pass the matches as context to Azure OpenAI. The LLM then answers based only on that context — or says it doesn't know.</div>
+
+<!-- End-to-end pipeline -->
+<div class="card" style="padding:24px;margin-bottom:16px;overflow-x:auto;">
+  <div class="sl" style="margin-bottom:18px;">End-to-End System</div>
+  <div class="pipeline" style="min-width:960px;">
+    <div class="ps">
+      <div class="pb2" style="border-color:rgba(96,165,250,.35);">
+        <div class="pi">📄</div>
+        <div class="pt" style="color:#60a5fa;">CSV / PDF</div>
+        <div class="pd">Admin uploads Q&amp;A knowledge base file</div>
+      </div>
+    </div>
+    <div class="pa2">→</div>
+    <div class="ps">
+      <div class="pb2" style="border-color:rgba(139,92,246,.35);">
+        <div class="pi">✂️</div>
+        <div class="pt" style="color:#a78bfa;">Chunking</div>
+        <div class="pd">Split into chunks. Each Q+A = 1 chunk.</div>
+      </div>
+    </div>
+    <div class="pa2">→</div>
+    <div class="ps">
+      <div class="pb2" style="border-color:rgba(6,182,212,.35);">
+        <div class="pi">🔢</div>
+        <div class="pt" style="color:#22d3ee;">Embeddings</div>
+        <div class="pd">Azure text-embedding-ada-002 converts each chunk to a vector</div>
+      </div>
+    </div>
+    <div class="pa2">→</div>
+    <div class="ps">
+      <div class="pb2" style="border-color:rgba(249,115,22,.35);">
+        <div class="pi">🗄️</div>
+        <div class="pt" style="color:#fb923c;">Vector Store</div>
+        <div class="pd">Stored in Chroma / FAISS / Azure AI Search</div>
+      </div>
+    </div>
+    <div class="pa2">→</div>
+    <div class="ps">
+      <div class="pb2" style="border-color:rgba(16,185,129,.35);">
+        <div class="pi">💬</div>
+        <div class="pt" style="color:#10b981;">User Query</div>
+        <div class="pd">User types question in chat UI</div>
+      </div>
+    </div>
+    <div class="pa2">→</div>
+    <div class="ps">
+      <div class="pb2" style="border-color:rgba(245,158,11,.35);">
+        <div class="pi">🔍</div>
+        <div class="pt" style="color:#fbbf24;">Similarity Search</div>
+        <div class="pd">Query embedded, top-K matches retrieved</div>
+      </div>
+    </div>
+    <div class="pa2">→</div>
+    <div class="ps">
+      <div class="pb2" style="border-color:rgba(0,120,212,.35);">
+        <div class="pi">🤖</div>
+        <div class="pt" style="color:#60a5fa;">Azure GPT</div>
+        <div class="pd">Answer from context OR "don't know + phone"</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="g3">
+  <div class="card">
+    <div class="ct"><span class="cd" style="background:var(--az)"></span>Azure OpenAI Services</div>
+    <div class="ir"><span class="ik">LLM</span><span class="iv">gpt-4o or gpt-35-turbo deployment</span></div>
+    <div class="ir"><span class="ik">Embeddings</span><span class="iv">text-embedding-ada-002</span></div>
+    <div class="ir"><span class="ik">Deployment</span><span class="iv">Your Azure resource endpoint</span></div>
+    <div class="ir"><span class="ik">Auth</span><span class="iv">API key or managed identity</span></div>
+    <div class="ir"><span class="ik">Region</span><span class="iv">Match to your Azure subscription</span></div>
+  </div>
+  <div class="card">
+    <div class="ct"><span class="cd" style="background:var(--lc)"></span>LangChain Components</div>
+    <div class="ir"><span class="ik">LLM wrapper</span><span class="iv">AzureChatOpenAI</span></div>
+    <div class="ir"><span class="ik">Embeddings</span><span class="iv">AzureOpenAIEmbeddings</span></div>
+    <div class="ir"><span class="ik">Vector store</span><span class="iv">Chroma (local) or Azure AI Search</span></div>
+    <div class="ir"><span class="ik">Document loaders</span><span class="iv">CSVLoader, PDFLoader (pypdf)</span></div>
+    <div class="ir"><span class="ik">Chain type</span><span class="iv">RetrievalQA chain</span></div>
+    <div class="ir"><span class="ik">Prompt</span><span class="iv">Custom system prompt with fallback</span></div>
+  </div>
+  <div class="card">
+    <div class="ct"><span class="cd" style="background:var(--vec)"></span>Tech Stack</div>
+    <div class="ir"><span class="ik">Runtime</span><span class="iv">Node.js (LangChain JS)</span></div>
+    <div class="ir"><span class="ik">Framework</span><span class="iv">Express.js</span></div>
+    <div class="ir"><span class="ik">Vector store</span><span class="iv">Chroma (dev) / Azure AI Search (prod)</span></div>
+    <div class="ir"><span class="ik">File parsing</span><span class="iv">csv-parse, pdf-parse</span></div>
+    <div class="ir"><span class="ik">DB</span><span class="iv">MongoDB — chat history + sessions</span></div>
+    <div class="ir"><span class="ik">Frontend</span><span class="iv">React + streaming UI</span></div>
+  </div>
+</div>
+</div>
+
+
+<!-- ═══════════ RAG PIPELINE ═══════════ -->
+<div class="panel" id="tab-rag">
+<div class="sl">Understanding RAG — The Core Logic</div>
+
+<div class="note ni"><strong>Why RAG instead of fine-tuning?</strong> Fine-tuning bakes knowledge into the model permanently — expensive and needs retraining to update. RAG keeps knowledge in an external store — update your CSV/PDF and re-ingest in seconds. Perfect for dynamic FAQ/Q&amp;A content.</div>
+
+<div class="sl">The Retrieval Decision Logic</div>
+<div class="decision">
+  <div class="decision-title">⚖️ Answer or Escalate Decision Tree</div>
+  <div class="tl" style="margin-bottom:0;">
+    <div class="tli si">
+      <div class="tlt">Step 1 · Embed User Query</div>
+      <div class="tld">User question → AzureOpenAIEmbeddings → 1536-dimensional float vector. This converts semantic meaning into numbers that can be compared.</div>
+    </div>
+    <div class="tli si">
+      <div class="tlt">Step 2 · Cosine Similarity Search</div>
+      <div class="tld">Compare query vector against all stored Q&amp;A chunk vectors. Retrieve top K=3 closest chunks. <strong style="color:#fcd34d;">Chroma returns L2 distance</strong>: 0.0 = identical, higher = less similar. Configure with cosine distance for text (see code).</div>
+    </div>
+    <div class="tli sw">
+      <div class="tlt">Step 3 · Similarity Threshold Check</div>
+      <div class="tld">Chroma returns a <strong style="color:#fcd34d;">distance score</strong> (lower = more similar). If best match distance is <strong style="color:#fcd34d;">&gt; 0.50</strong> (configurable): no relevant answer found → Step 5. If distance ≤ 0.50 → relevant content found → Step 4. (Distance 0.50 with cosine ≈ 75% cosine similarity.)</div>
+    </div>
+    <div class="tli so">
+      <div class="tlt">Step 4 · Answer from Context</div>
+      <div class="tld">Pass retrieved chunks as context to Azure GPT. System prompt instructs: "Answer only from the provided context. Do not make up information." GPT synthesizes a natural language answer from the matched Q&amp;A pairs.</div>
+    </div>
+    <div class="tli se">
+      <div class="tlt">Step 5 · Fallback — Unknown Question</div>
+      <div class="tld">System prompt triggers fallback: "I don't have information about that. Please contact our team directly: <strong style="color:#fca5a5;">📞 +1-800-XXX-XXXX</strong>" — phone number stored in env config, never hardcoded.</div>
+    </div>
+  </div>
+</div>
+
+<div class="g2">
+  <div class="card">
+    <div class="ct"><span class="cd" style="background:var(--vec)"></span>Similarity Score Tuning</div>
+    <div class="ir"><span class="ik">Distance &lt; 0.20</span><span class="iv">Near-exact match — very high confidence answer</span></div>
+    <div class="ir"><span class="ik">Distance 0.20–0.40</span><span class="iv">Semantically similar — answer from context</span></div>
+    <div class="ir"><span class="ik">Distance 0.40–0.50</span><span class="iv">Loosely related — answer with caveat</span></div>
+    <div class="ir"><span class="ik">Distance &gt; 0.50</span><span class="iv">Not in knowledge base — escalate to phone</span></div>
+    <div class="ir"><span class="ik">Threshold</span><span class="iv"><span class="pill pa">DISTANCE_THRESHOLD=0.50 in .env (lower = stricter matching)</span></span></div>
+  </div>
+  <div class="card">
+    <div class="ct"><span class="cd" style="background:var(--ret)"></span>Chunking Strategy for Q&amp;A</div>
+    <div class="ir"><span class="ik">CSV</span><span class="iv">Each row = 1 document chunk (Q + A together)</span></div>
+    <div class="ir"><span class="ik">PDF</span><span class="iv">Parse Q&amp;A sections, keep Q+A as single chunk</span></div>
+    <div class="ir"><span class="ik">Chunk content</span><span class="iv">"Q: {question} A: {answer}" — embed both</span></div>
+    <div class="ir"><span class="ik">Metadata</span><span class="iv">Store source file, row number, category</span></div>
+    <div class="ir"><span class="ik">Overlap</span><span class="iv">No overlap needed — Q&amp;A pairs are discrete</span></div>
+    <div class="ir"><span class="ik">Re-embed</span><span class="iv">Re-ingest entire file on upload (stateless)</span></div>
+  </div>
+</div>
+
+<div class="cb">
+  <div class="ch"><span class="d8" style="background:var(--warn)"></span> The System Prompt — the heart of the logic</div>
+  <pre><span class="kw">const</span> SYSTEM_PROMPT = <span class="str">`You are a helpful customer support assistant.
+
+INSTRUCTIONS:
+1. Answer questions ONLY using the context provided below.
+2. Do NOT make up information or answer from general knowledge.
+3. If the context contains a relevant answer, provide it clearly and helpfully.
+4. If the context does NOT contain a relevant answer, respond EXACTLY with:
+   "I'm sorry, I don't have information about that.
+    Please contact our support team directly:
+    📞 ${process.env.SUPPORT_PHONE}
+    📧 ${process.env.SUPPORT_EMAIL}"
+5. Keep answers concise, friendly, and professional.
+6. Never mention that you are looking at a document or context.
+
+CONTEXT:
+{context}
+
+USER QUESTION: {question}`</span>;</pre>
+</div>
+</div>
+
+
+<!-- ═══════════ INGESTION ═══════════ -->
+<div class="panel" id="tab-ingestion">
+<div class="sl">File Ingestion Pipeline — CSV and PDF</div>
+
+<div class="note nw"><strong>Ingestion is a one-time (or on-update) operation.</strong> When admin uploads a new CSV or PDF, parse it, chunk it, embed each chunk via Azure OpenAI, and store in the vector store. Old vectors are cleared first to avoid duplicates.</div>
+
+<div class="tl">
+  <div class="tli si">
+    <div class="tlt">Step 1 · Admin uploads file <span class="pill pb">POST /api/admin/knowledge-base</span></div>
+    <div class="tld">Multer middleware handles multipart upload. Accept only .csv and .pdf. Max 10MB. Store temporarily in /tmp. Auth-protected — admin role only. Return 202 Accepted immediately, process async.</div>
+  </div>
+  <div class="tli si">
+    <div class="tlt">Step 2 · Parse the file</div>
+    <div class="tld">CSV: use LangChain's CSVLoader — auto-maps columns. Expects columns: question, answer (or Q, A). PDF: use PDFLoader from @langchain/community — extracts text pages. Custom parser splits page text into Q&amp;A pairs by detecting "Q:" / "A:" patterns or numbered lists.</div>
+  </div>
+  <div class="tli si">
+    <div class="tlt">Step 3 · Create Document chunks</div>
+    <div class="tld">Each Q&amp;A pair becomes a LangChain Document: { pageContent: "Q: [question] A: [answer]", metadata: { source, rowIndex, question, category } }. Metadata is stored alongside vectors for filtering and source attribution.</div>
+  </div>
+  <div class="tli sw">
+    <div class="tlt">Step 4 · Clear old vectors</div>
+    <div class="tld">Before inserting, clear existing vectors from this knowledge base. Use collection name as namespace. This prevents stale/duplicate answers from old file versions. Store collection name in DB alongside file metadata.</div>
+  </div>
+  <div class="tli so">
+    <div class="tlt">Step 5 · Embed and store</div>
+    <div class="tld">AzureOpenAIEmbeddings.embedDocuments() sends all chunks to Azure text-embedding-ada-002. Returns 1536-dim vectors. Chroma.fromDocuments() stores vectors + original text + metadata. Azure AI Search alternative: uses Azure's managed vector store for production scale.</div>
+  </div>
+  <div class="tli so">
+    <div class="tlt">Step 6 · Save metadata to MongoDB</div>
+    <div class="tld">Save: filename, upload date, chunk count, collection name, status: 'active'. Mark previous file as 'archived'. Admin dashboard shows current active knowledge base and ingestion history.</div>
+  </div>
+</div>
+
+<div class="cb">
+  <div class="ch"><span class="d8" style="background:var(--vec)"></span> services/ingestion.js — full ingestion pipeline</div>
+  <pre><span class="kw">import</span> { CSVLoader } <span class="kw">from</span> <span class="str">'@langchain/community/document_loaders/fs/csv'</span>;
+<span class="kw">import</span> { PDFLoader } <span class="kw">from</span> <span class="str">'@langchain/community/document_loaders/fs/pdf'</span>;
+<span class="kw">import</span> { AzureOpenAIEmbeddings } <span class="kw">from</span> <span class="str">'@langchain/openai'</span>;
+<span class="kw">import</span> { Chroma } <span class="kw">from</span> <span class="str">'@langchain/community/vectorstores/chroma'</span>;
+<span class="kw">import</span> { Document } <span class="kw">from</span> <span class="str">'@langchain/core/documents'</span>;
+
+<span class="kw">const</span> embeddings = <span class="kw">new</span> <span class="fn">AzureOpenAIEmbeddings</span>({
+  azureOpenAIApiKey:              process.env.<span class="obj">AZURE_OPENAI_API_KEY</span>,
+  azureOpenAIApiInstanceName:     process.env.<span class="obj">AZURE_OPENAI_INSTANCE_NAME</span>,
+  azureOpenAIApiDeploymentName:   process.env.<span class="obj">AZURE_OPENAI_EMBEDDING_DEPLOYMENT</span>,  <span class="cm">// text-embedding-ada-002</span>
+  azureOpenAIApiVersion:          <span class="str">'2024-02-01'</span>,
+});
+
+<span class="kw">export async function</span> <span class="fn">ingestFile</span>(filePath, mimeType) {
+  <span class="cm">// ── 1. Load documents based on file type ──────────────────</span>
+  <span class="kw">let</span> rawDocs;
+  <span class="kw">if</span> (mimeType === <span class="str">'text/csv'</span>) {
+    <span class="kw">const</span> loader = <span class="kw">new</span> <span class="fn">CSVLoader</span>(filePath, { column: <span class="str">'question'</span> });
+    <span class="kw">const</span> csvDocs = <span class="kw">await</span> loader.<span class="fn">load</span>();
+    <span class="cm">// Re-map: combine question + answer columns into single pageContent</span>
+    rawDocs = csvDocs.<span class="fn">map</span>((doc, i) => <span class="kw">new</span> <span class="fn">Document</span>({
+      pageContent: <span class="str">`Q: ${doc.metadata.question}\nA: ${doc.metadata.answer}`</span>,
+      metadata: { source: filePath, rowIndex: i,
+                  question: doc.metadata.question,
+                  category: doc.metadata.category || <span class="str">'general'</span> }
+    }));
+  } <span class="kw">else if</span> (mimeType === <span class="str">'application/pdf'</span>) {
+    <span class="kw">const</span> loader = <span class="kw">new</span> <span class="fn">PDFLoader</span>(filePath);
+    <span class="kw">const</span> pages = <span class="kw">await</span> loader.<span class="fn">load</span>();
+    rawDocs = <span class="fn">parsePDFQA</span>(pages);  <span class="cm">// custom parser — see below</span>
+  }
+
+  <span class="cm">// ── 2. Clear existing vectors ──────────────────────────────</span>
+  <span class="kw">const</span> COLLECTION = <span class="str">'qa_knowledge_base'</span>;
+  <span class="kw">try</span> {
+    <span class="kw">const</span> existing = <span class="kw">await</span> Chroma.<span class="fn">fromExistingCollection</span>(embeddings, { collectionName: COLLECTION });
+    <span class="kw">await</span> existing.<span class="fn">delete</span>({ filter: {} });
+  } <span class="kw">catch</span>(e) { <span class="cm">/* collection doesn't exist yet — first run */</span> }
+
+  <span class="cm">// ── 3. Embed + Store ───────────────────────────────────────</span>
+  <span class="kw">const</span> vectorStore = <span class="kw">await</span> Chroma.<span class="fn">fromDocuments</span>(rawDocs, embeddings, {
+    collectionName: COLLECTION,
+    url: process.env.<span class="obj">CHROMA_URL</span> || <span class="str">'http://localhost:8000'</span>,
+    collectionMetadata: { <span class="str">'hnsw:space'</span>: <span class="str">'cosine'</span> }  <span class="cm">// use cosine distance (0=identical, 2=opposite)</span>
+  });
+
+  <span class="cm">// ── 4. Save metadata to MongoDB ───────────────────────────</span>
+  <span class="kw">await</span> KnowledgeBase.<span class="fn">create</span>({
+    filename: path.<span class="fn">basename</span>(filePath),
+    chunkCount: rawDocs.length,
+    collectionName: COLLECTION,
+    status: <span class="str">'active'</span>,
+    ingestedAt: <span class="kw">new</span> <span class="obj">Date</span>()
+  });
+
+  <span class="kw">return</span> { chunkCount: rawDocs.length };
+}</pre>
+</div>
+
+<div class="cb">
+  <div class="ch"><span class="d8" style="background:var(--a2)"></span> PDF Q&amp;A parser — handles "Q: / A:" and numbered formats</div>
+  <pre><span class="kw">function</span> <span class="fn">parsePDFQA</span>(pages) {
+  <span class="kw">const</span> fullText = pages.<span class="fn">map</span>(p => p.pageContent).<span class="fn">join</span>(<span class="str">'\n'</span>);
+  <span class="kw">const</span> docs = [];
+
+  <span class="cm">// Match patterns: "Q: ... A: ..." OR "1. Question\nAnswer"</span>
+  <span class="kw">const</span> qaPattern = <span class="dec">/Q:\s*(.+?)\s*\nA:\s*(.+?)(?=\nQ:|\n\d+\.|\n*$)/gs</span>;
+  <span class="kw">let</span> match;
+  <span class="kw">let</span> idx = <span class="num">0</span>;
+
+  <span class="kw">while</span> ((match = qaPattern.<span class="fn">exec</span>(fullText)) !== <span class="kw">null</span>) {
+    <span class="kw">const</span> [, question, answer] = match;
+    docs.<span class="fn">push</span>(<span class="kw">new</span> <span class="fn">Document</span>({
+      pageContent: <span class="str">`Q: ${question.trim()}\nA: ${answer.trim()}`</span>,
+      metadata:    { source: <span class="str">'pdf'</span>, rowIndex: idx++, question: question.trim() }
+    }));
+  }
+  <span class="kw">return</span> docs;
+}</pre>
+</div>
+
+<div class="sl">Expected CSV Format</div>
+<div class="cb">
+  <div class="ch"><span class="d8" style="background:var(--ok)"></span> knowledge-base.csv — expected columns</div>
+  <pre><span class="cm">// Minimum required columns:</span>
+question,answer,category
+
+<span class="str">"What are your business hours?"</span>,<span class="str">"We are open Monday to Friday, 9am to 6pm EST."</span>,<span class="str">"hours"</span>
+<span class="str">"How do I reset my password?"</span>,<span class="str">"Click 'Forgot Password' on the login page and follow the instructions."</span>,<span class="str">"account"</span>
+<span class="str">"What is your refund policy?"</span>,<span class="str">"We offer a 30-day money-back guarantee on all purchases."</span>,<span class="str">"billing"</span>
+<span class="str">"Do you offer a free trial?"</span>,<span class="str">"Yes, we offer a 14-day free trial with no credit card required."</span>,<span class="str">"pricing"</span></pre>
+</div>
+</div>
+
+
+<!-- ═══════════ CHAT FLOW ═══════════ -->
+<div class="panel" id="tab-chat">
+<div class="sl">Chat API — Request Flow</div>
+
+<div class="tl">
+  <div class="tli si">
+    <div class="tlt">Step 1 · User sends message <span class="pill pb">POST /api/chat/message</span></div>
+    <div class="tld">Authenticated user sends: { sessionId, message }. Rate limit: 20 messages/minute/user. sessionId groups conversation history. Backend fetches or creates session from MongoDB.</div>
+  </div>
+  <div class="tli si">
+    <div class="tlt">Step 2 · Embed the user's query</div>
+    <div class="tld">AzureOpenAIEmbeddings.embedQuery(message) → 1536-dim vector. Same embedding model used for ingestion — consistency is critical. This is a single fast API call (~100ms).</div>
+  </div>
+  <div class="tli si">
+    <div class="tlt">Step 3 · Similarity search in vector store</div>
+    <div class="tld">vectorStore.similaritySearchWithScore(query, k=3). Returns [Document, distanceScore][] — <strong style="color:#fcd34d;">lower distance = more similar</strong>. If lowest distance &gt; DISTANCE_THRESHOLD (0.50): no relevant match found.</div>
+  </div>
+  <div class="tli sw">
+    <div class="tlt">Step 4a · No match found — fallback response</div>
+    <div class="tld">Do NOT call Azure GPT for cost savings. Return the fallback message directly from config: "I don't have information about that. Please contact: 📞 [phone]". Save this exchange to MongoDB chat history.</div>
+  </div>
+  <div class="tli so">
+    <div class="tlt">Step 4b · Match found — call Azure GPT</div>
+    <div class="tld">Build prompt: system prompt + retrieved context + conversation history (last 5 messages for context) + user question. Call AzureChatOpenAI with streaming enabled. Stream tokens back to frontend via Server-Sent Events (SSE).</div>
+  </div>
+  <div class="tli so">
+    <div class="tlt">Step 5 · Save to history and return</div>
+    <div class="tld">Save: { sessionId, userMessage, assistantResponse, matchScore, sourceChunks[], timestamp } to MongoDB. Response includes: answer, matchScore, matched (boolean). Frontend displays streaming text.</div>
+  </div>
+</div>
+
+<div class="cb">
+  <div class="ch"><span class="d8" style="background:var(--ok)"></span> POST /api/chat/message — full handler</div>
+  <pre><span class="kw">export const</span> <span class="fn">handleChat</span> = <span class="kw">async</span> (req, res) => {
+  <span class="kw">const</span> { sessionId, message } = req.body;
+  <span class="kw">const</span> userId = req.user.userId;
+
+  <span class="cm">// ── 1. Get or create chat session ──────────────────────────</span>
+  <span class="kw">let</span> session = <span class="kw">await</span> ChatSession.<span class="fn">findOne</span>({ _id: sessionId, userId });
+  <span class="kw">if</span> (!session) session = <span class="kw">await</span> ChatSession.<span class="fn">create</span>({ userId });
+
+  <span class="cm">// ── 2. Load vector store (cached singleton — loaded once at startup) ──</span>
+  <span class="kw">const</span> vectorStore = <span class="kw">await</span> <span class="fn">getVectorStore</span>();  <span class="cm">// see vectorStore.js singleton below</span>
+
+  <span class="cm">// ── 3. Similarity search ───────────────────────────────────</span>
+  <span class="kw">const</span> results = <span class="kw">await</span> vectorStore.<span class="fn">similaritySearchWithScore</span>(message, <span class="num">3</span>);
+  <span class="kw">const</span> topDistance = results[<span class="num">0</span>]?.[<span class="num">1</span>] ?? <span class="num">999</span>;  <span class="cm">// default high = no match</span>
+  <span class="kw">const</span> THRESHOLD = <span class="fn">parseFloat</span>(process.env.<span class="obj">DISTANCE_THRESHOLD</span> || <span class="str">'0.50'</span>);
+
+  <span class="cm">// ── 4a. No match — return fallback without calling GPT ─────</span>
+  <span class="cm">// Distance > threshold means vectors are too far apart = not relevant</span>
+  <span class="kw">if</span> (topDistance &gt; THRESHOLD) {
+    <span class="kw">const</span> fallback = <span class="str">`I'm sorry, I don't have information about that.\n\n`</span> +
+                     <span class="str">`Please contact our support team:\n`</span> +
+                     <span class="str">`📞 ${process.env.SUPPORT_PHONE}\n📧 ${process.env.SUPPORT_EMAIL}`</span>;
+    <span class="kw">await</span> <span class="fn">saveMessage</span>(session._id, message, fallback, { matched: <span class="kw">false</span>, topDistance });
+    <span class="kw">return</span> res.<span class="fn">json</span>({ answer: fallback, matched: <span class="kw">false</span>, distance: topDistance });
+  }
+
+  <span class="cm">// ── 4b. Match found — call Azure GPT with streaming ────────</span>
+  <span class="kw">const</span> context = results.<span class="fn">map</span>(([doc]) => doc.pageContent).<span class="fn">join</span>(<span class="str">'\n\n---\n\n'</span>);
+  <span class="kw">const</span> recentHistory = <span class="kw">await</span> <span class="fn">getRecentHistory</span>(session._id, <span class="num">5</span>);
+
+  <span class="cm">// Set up SSE streaming</span>
+  res.<span class="fn">setHeader</span>(<span class="str">'Content-Type'</span>, <span class="str">'text/event-stream'</span>);
+  res.<span class="fn">setHeader</span>(<span class="str">'Cache-Control'</span>, <span class="str">'no-cache'</span>);
+  res.<span class="fn">setHeader</span>(<span class="str">'Connection'</span>, <span class="str">'keep-alive'</span>);
+
+  <span class="kw">const</span> llm = <span class="kw">new</span> <span class="fn">AzureChatOpenAI</span>({
+    azureOpenAIApiKey:            process.env.<span class="obj">AZURE_OPENAI_API_KEY</span>,
+    azureOpenAIApiInstanceName:   process.env.<span class="obj">AZURE_OPENAI_INSTANCE_NAME</span>,
+    azureOpenAIApiDeploymentName: process.env.<span class="obj">AZURE_OPENAI_CHAT_DEPLOYMENT</span>,  <span class="cm">// gpt-4o</span>
+    azureOpenAIApiVersion:        <span class="str">'2024-02-01'</span>,
+    temperature: <span class="num">0.1</span>,  <span class="cm">// low temperature = factual, consistent</span>
+    <span class="cm">// streaming handled by .stream() method below — no flag needed</span>
+  });
+
+  <span class="kw">let</span> fullResponse = <span class="str">''</span>;
+  <span class="kw">const</span> stream = <span class="kw">await</span> llm.<span class="fn">stream</span>([
+    [<span class="str">'system'</span>, SYSTEM_PROMPT.<span class="fn">replace</span>(<span class="str">'{context}'</span>, context)],
+    ...recentHistory,
+    [<span class="str">'human'</span>, message]
+  ]);
+
+  <span class="kw">for await</span> (<span class="kw">const</span> chunk <span class="kw">of</span> stream) {
+    <span class="kw">const</span> text = chunk.content;
+    fullResponse += text;
+    res.<span class="fn">write</span>(<span class="str">`data: ${JSON.stringify({ token: text })}\n\n`</span>);
+  }
+
+  res.<span class="fn">write</span>(<span class="str">`data: ${JSON.stringify({ done: true, distance: topDistance })}\n\n`</span>);
+  res.<span class="fn">end</span>();
+
+  <span class="kw">await</span> <span class="fn">saveMessage</span>(session._id, message, fullResponse, {
+    matched: <span class="kw">true</span>, topDistance, sources: results.<span class="fn">map</span>(([d]) => d.metadata)
+  });
+};</pre>
+</div>
+</div>
+
+
+<!-- ═══════════ LANGCHAIN CODE ═══════════ -->
+<div class="panel" id="tab-langchain">
+<div class="sl">LangChain + Azure OpenAI — Complete Setup</div>
+
+<div class="cb">
+  <div class="ch"><span class="d8" style="background:var(--az)"></span> .env — Azure OpenAI configuration</div>
+  <pre><span class="cm"># Azure OpenAI Resource</span>
+<span class="key">AZURE_OPENAI_API_KEY</span>=<span class="str">your_azure_openai_api_key</span>
+<span class="key">AZURE_OPENAI_INSTANCE_NAME</span>=<span class="str">your-resource-name</span>        <span class="cm"># e.g. my-openai-resource</span>
+<span class="key">AZURE_OPENAI_CHAT_DEPLOYMENT</span>=<span class="str">gpt-4o</span>                 <span class="cm"># your GPT deployment name</span>
+<span class="key">AZURE_OPENAI_EMBEDDING_DEPLOYMENT</span>=<span class="str">text-embedding-ada-002</span>
+<span class="key">AZURE_OPENAI_API_VERSION</span>=<span class="str">2024-02-01</span>
+
+<span class="cm"># Vector Store</span>
+<span class="key">CHROMA_URL</span>=<span class="str">http://localhost:8000</span>                    <span class="cm"># dev — run Chroma in Docker</span>
+
+<span class="cm"># RAG Config</span>
+<span class="key">DISTANCE_THRESHOLD</span>=<span class="str">0.50</span>  <span class="cm"># L2/cosine distance — lower = stricter match required</span>
+<span class="key">TOP_K_RESULTS</span>=<span class="str">3</span>
+
+<span class="cm"># Fallback contact info</span>
+<span class="key">SUPPORT_PHONE</span>=<span class="str">+1-800-XXX-XXXX</span>
+<span class="key">SUPPORT_EMAIL</span>=<span class="str"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="bccfc9ccccd3cec8fcc5d3c9cedfd3d1ccddd2c592dfd3d1">[email&#160;protected]</a></span></pre>
+</div>
+
+<div class="cb">
+  <div class="ch"><span class="d8" style="background:var(--lc)"></span> package.json — required dependencies</div>
+  <pre>{
+  <span class="key">"dependencies"</span>: {
+    <span class="str">"@langchain/openai"</span>:         <span class="str">"^0.2.0"</span>,   <span class="cm">// AzureChatOpenAI + AzureOpenAIEmbeddings</span>
+    <span class="str">"@langchain/community"</span>:      <span class="str">"^0.2.0"</span>,   <span class="cm">// CSVLoader, PDFLoader, Chroma</span>
+    <span class="str">"@langchain/core"</span>:           <span class="str">"^0.2.0"</span>,   <span class="cm">// Document, prompts, messages</span>
+    <span class="str">"langchain"</span>:                 <span class="str">"^0.2.0"</span>,   <span class="cm">// RetrievalQA, chains</span>
+    <span class="str">"chromadb"</span>:                  <span class="str">"^1.8.0"</span>,   <span class="cm">// Chroma client</span>
+    <span class="str">"csv-parse"</span>:                 <span class="str">"^5.5.0"</span>,   <span class="cm">// CSV parsing</span>
+    <span class="str">"pdf-parse"</span>:                 <span class="str">"^1.1.1"</span>,   <span class="cm">// PDF text extraction</span>
+    <span class="str">"multer"</span>:                    <span class="str">"^1.4.5"</span>,   <span class="cm">// file upload middleware</span>
+    <span class="str">"express"</span>:                   <span class="str">"^4.19.0"</span>,
+    <span class="str">"mongoose"</span>:                  <span class="str">"^8.0.0"</span>
+  }
+}</pre>
+</div>
+
+<div class="cb">
+  <div class="ch"><span class="d8" style="background:var(--a2)"></span> Alternative: RetrievalQA chain (simpler, non-streaming)</div>
+  <pre><span class="kw">import</span> { createRetrievalChain, createStuffDocumentsChain } <span class="kw">from</span> <span class="str">'langchain/chains'</span>;
+<span class="kw">import</span> { ChatPromptTemplate } <span class="kw">from</span> <span class="str">'@langchain/core/prompts'</span>;
+
+<span class="cm">// Build the chain once at server startup (cache it)</span>
+<span class="kw">let</span> qaChain;
+
+<span class="kw">export async function</span> <span class="fn">getQAChain</span>() {
+  <span class="kw">if</span> (qaChain) <span class="kw">return</span> qaChain;  <span class="cm">// singleton — avoid reloading on every request</span>
+
+  <span class="kw">const</span> vectorStore = <span class="kw">await</span> Chroma.<span class="fn">fromExistingCollection</span>(embeddings, {
+    collectionName: <span class="str">'qa_knowledge_base'</span>,
+    collectionMetadata: { <span class="str">'hnsw:space'</span>: <span class="str">'cosine'</span> }
+  });
+
+  <span class="cm">// createStuffDocumentsChain requires ChatPromptTemplate, not PromptTemplate</span>
+  <span class="kw">const</span> prompt = ChatPromptTemplate.<span class="fn">fromMessages</span>([
+    [<span class="str">'system'</span>, SYSTEM_PROMPT],
+    [<span class="str">'human'</span>, <span class="str">'{input}'</span>]
+  ]);
+
+  <span class="kw">const</span> retriever = vectorStore.<span class="fn">asRetriever</span>({ k: <span class="num">3</span> });
+  <span class="kw">const</span> combineDocsChain = <span class="kw">await</span> <span class="fn">createStuffDocumentsChain</span>({ llm, prompt });
+  qaChain = <span class="kw">await</span> <span class="fn">createRetrievalChain</span>({ retriever, combineDocsChain });
+
+  <span class="kw">return</span> qaChain;
+}
+
+<span class="cm">// Usage in controller (non-streaming):</span>
+<span class="kw">const</span> chain = <span class="kw">await</span> <span class="fn">getQAChain</span>();
+<span class="kw">const</span> result = <span class="kw">await</span> chain.<span class="fn">invoke</span>({ input: userMessage });
+<span class="cm">// result.answer = answer text, result.context = source Document[]</span></pre>
+</div>
+
+<div class="cb">
+  <div class="ch"><span class="d8" style="background:var(--a3)"></span> Run Chroma locally with Docker (development)</div>
+  <pre><span class="cm"># docker-compose.yml</span>
+services:
+  chroma:
+    image: chromadb/chroma:latest
+    ports:
+      - <span class="str">"8000:8000"</span>
+    volumes:
+      - chroma_data:/chroma/chroma
+    environment:
+      - IS_PERSISTENT=TRUE
+
+<span class="cm"># Start with: docker-compose up -d chroma</span>
+<span class="cm"># Chroma UI available at: http://localhost:8000</span></pre>
+</div>
+
+<div class="cb">
+  <div class="ch"><span class="d8" style="background:var(--a1)"></span> services/vectorStore.js — singleton to avoid loading on every request</div>
+  <pre><span class="kw">import</span> { Chroma } <span class="kw">from</span> <span class="str">'@langchain/community/vectorstores/chroma'</span>;
+
+<span class="kw">let</span> vectorStoreInstance = <span class="kw">null</span>;
+
+<span class="kw">export async function</span> <span class="fn">getVectorStore</span>() {
+  <span class="kw">if</span> (vectorStoreInstance) <span class="kw">return</span> vectorStoreInstance;  <span class="cm">// reuse cached instance</span>
+  vectorStoreInstance = <span class="kw">await</span> Chroma.<span class="fn">fromExistingCollection</span>(embeddings, {
+    collectionName: <span class="str">'qa_knowledge_base'</span>,
+    url: process.env.<span class="obj">CHROMA_URL</span>,
+    collectionMetadata: { <span class="str">'hnsw:space'</span>: <span class="str">'cosine'</span> }
+  });
+  <span class="kw">return</span> vectorStoreInstance;
+}
+
+<span class="cm">// Call after re-ingesting a new file to force reload:</span>
+<span class="kw">export function</span> <span class="fn">clearVectorStoreCache</span>() { vectorStoreInstance = <span class="kw">null</span>; }</pre>
+</div>
+
+<div class="note nw"><strong>Production vector store:</strong> Use <strong>Azure AI Search</strong> instead of Chroma for production. LangChain has a built-in AzureAISearchVectorStore. It's managed, scalable, and stays in your Azure ecosystem. No separate Chroma server to manage.</div>
+
+<div class="cb">
+  <div class="ch"><span class="d8" style="background:var(--az)"></span> Azure AI Search (production alternative to Chroma)</div>
+  <pre><span class="kw">import</span> { AzureAISearchVectorStore } <span class="kw">from</span> <span class="str">'@langchain/community/vectorstores/azure_aisearch'</span>;
+
+<span class="kw">const</span> vectorStore = <span class="kw">new</span> <span class="fn">AzureAISearchVectorStore</span>(embeddings, {
+  endpoint:   process.env.<span class="obj">AZURE_SEARCH_ENDPOINT</span>,
+  indexName:  <span class="str">'qa-knowledge-base'</span>,
+  key:        process.env.<span class="obj">AZURE_SEARCH_KEY</span>,
+});
+
+<span class="cm">// Everything else stays identical — LangChain abstracts the vector store</span></pre>
+</div>
+</div>
+
+
+<!-- ═══════════ FRONTEND ═══════════ -->
+<div class="panel" id="tab-frontend">
+<div class="sl">Frontend Chat Implementation</div>
+
+<div class="g2">
+  <div class="card">
+    <div class="ct"><span class="cd" style="background:var(--a1)"></span>Chat UI Components</div>
+    <div class="ir"><span class="ik">Chat window</span><span class="iv">Message list with scroll-to-bottom</span></div>
+    <div class="ir"><span class="ik">Input</span><span class="iv">Textarea + Send button + Enter to send</span></div>
+    <div class="ir"><span class="ik">Streaming</span><span class="iv">Token-by-token rendering via SSE</span></div>
+    <div class="ir"><span class="ik">Typing indicator</span><span class="iv">Animated dots while awaiting first token</span></div>
+    <div class="ir"><span class="ik">Fallback message</span><span class="iv">Phone number as clickable tel: link</span></div>
+    <div class="ir"><span class="ik">History</span><span class="iv">Load previous sessions from API</span></div>
+  </div>
+  <div class="card">
+    <div class="ct"><span class="cd" style="background:var(--a2)"></span>Libraries</div>
+    <div class="ir"><span class="ik">SSE client</span><span class="iv">EventSource API (native browser)</span></div>
+    <div class="ir"><span class="ik">State</span><span class="iv">Zustand or React Context</span></div>
+    <div class="ir"><span class="ik">Markdown</span><span class="iv">react-markdown (render formatted answers)</span></div>
+    <div class="ir"><span class="ik">Scroll</span><span class="iv">useRef + scrollIntoView on new message</span></div>
+    <div class="ir"><span class="ik">HTTP</span><span class="iv">axios / fetch with Authorization header</span></div>
+    <div class="ir"><span class="ik">Date</span><span class="iv">date-fns for message timestamps</span></div>
+  </div>
+</div>
+
+<div class="cb">
+  <div class="ch"><span class="d8" style="background:var(--a1)"></span> hooks/useChat.js — streaming SSE chat hook</div>
+  <pre><span class="kw">import</span> { useState, useCallback } <span class="kw">from</span> <span class="str">'react'</span>;
+<span class="kw">import</span> { useAuthStore } <span class="kw">from</span> <span class="str">'../store/authStore'</span>;
+
+<span class="kw">const</span> API_URL = import.meta.env.<span class="obj">VITE_API_URL</span>;  <span class="cm">// set in .env: VITE_API_URL=http://localhost:5000</span>
+
+<span class="kw">export function</span> <span class="fn">useChat</span>(sessionId) {
+  <span class="kw">const</span> [messages, setMessages]    = <span class="fn">useState</span>([]);
+  <span class="kw">const</span> [isStreaming, setStreaming] = <span class="fn">useState</span>(<span class="kw">false</span>);
+  <span class="kw">const</span> { accessToken }            = <span class="fn">useAuthStore</span>();
+
+  <span class="kw">const</span> <span class="fn">sendMessage</span> = <span class="fn">useCallback</span>(<span class="kw">async</span> (userText) => {
+    <span class="cm">// Append user message immediately (optimistic UI)</span>
+    <span class="fn">setMessages</span>(prev => [...prev, { role: <span class="str">'user'</span>, content: userText, id: <span class="obj">Date</span>.<span class="fn">now</span>() }]);
+    <span class="fn">setStreaming</span>(<span class="kw">true</span>);
+
+    <span class="cm">// Add empty assistant message — filled token by token</span>
+    <span class="kw">const</span> assistantId = <span class="obj">Date</span>.<span class="fn">now</span>() + <span class="num">1</span>;
+    <span class="fn">setMessages</span>(prev => [...prev, { role: <span class="str">'assistant'</span>, content: <span class="str">''</span>, id: assistantId, streaming: <span class="kw">true</span> }]);
+
+    <span class="kw">try</span> {
+      <span class="kw">const</span> response = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">`${API_URL}/api/chat/message`</span>, {
+        method: <span class="str">'POST'</span>,
+        headers: { <span class="str">'Content-Type'</span>: <span class="str">'application/json'</span>,
+                   <span class="str">'Authorization'</span>: <span class="str">`Bearer ${accessToken}`</span> },
+        body: JSON.<span class="fn">stringify</span>({ sessionId, message: userText })
+      });
+
+      <span class="kw">if</span> (!response.ok) <span class="kw">throw new</span> <span class="obj">Error</span>(<span class="str">`HTTP ${response.status}`</span>);
+
+      <span class="kw">const</span> reader  = response.body.<span class="fn">getReader</span>();
+      <span class="kw">const</span> decoder = <span class="kw">new</span> <span class="fn">TextDecoder</span>();
+
+      <span class="kw">while</span> (<span class="kw">true</span>) {
+        <span class="kw">const</span> { done, value } = <span class="kw">await</span> reader.<span class="fn">read</span>();
+        <span class="kw">if</span> (done) <span class="kw">break</span>;
+
+        <span class="kw">const</span> chunk = decoder.<span class="fn">decode</span>(value);  <span class="cm">// renamed from 'text' to avoid shadowing param</span>
+        <span class="kw">const</span> lines = chunk.<span class="fn">split</span>(<span class="str">'\n'</span>).<span class="fn">filter</span>(l => l.startsWith(<span class="str">'data: '</span>));
+
+        <span class="kw">for</span> (<span class="kw">const</span> line <span class="kw">of</span> lines) {
+          <span class="kw">try</span> {
+            <span class="kw">const</span> data = JSON.<span class="fn">parse</span>(line.<span class="fn">slice</span>(<span class="num">6</span>));  <span class="cm">// strip "data: " prefix</span>
+            <span class="kw">if</span> (data.token) {
+              <span class="fn">setMessages</span>(prev => prev.<span class="fn">map</span>(m =>
+                m.id === assistantId ? { ...m, content: m.content + data.token } : m
+              ));
+            }
+            <span class="kw">if</span> (data.done) {
+              <span class="fn">setMessages</span>(prev => prev.<span class="fn">map</span>(m =>
+                m.id === assistantId
+                  ? { ...m, streaming: <span class="kw">false</span>, matched: data.matched }
+                  : m
+              ));
+            }
+          } <span class="kw">catch</span> { <span class="cm">/* skip malformed SSE lines */</span> }
+        }
+      }
+    } <span class="kw">catch</span>(err) {
+      <span class="cm">// Show error in the assistant message bubble</span>
+      <span class="fn">setMessages</span>(prev => prev.<span class="fn">map</span>(m =>
+        m.id === assistantId
+          ? { ...m, content: <span class="str">'Something went wrong. Please try again.'</span>, streaming: <span class="kw">false</span>, error: <span class="kw">true</span> }
+          : m
+      ));
+    } <span class="kw">finally</span> {
+      <span class="fn">setStreaming</span>(<span class="kw">false</span>);
+    }
+  }, [sessionId, accessToken]);
+
+  <span class="kw">return</span> { messages, isStreaming, <span class="fn">sendMessage</span> };
+}</pre>
+</div>
+
+<div class="note no"><strong>Fallback message formatting:</strong> When matched=false, the phone number in the response should render as a clickable <code class="ic">tel:</code> link. Use react-markdown with a custom link renderer, or detect the phone number pattern and replace it client-side.</div>
+</div>
+
+
+<!-- ═══════════ SCHEMA ═══════════ -->
+<div class="panel" id="tab-schema">
+<div class="sl">MongoDB Data Models</div>
+
+<div class="g2">
+  <div class="cb">
+    <div class="ch"><span class="d8" style="background:var(--a2)"></span> ChatSession document</div>
+    <pre>{
+  userId:     ObjectId,
+  title:      <span class="obj">String</span>,     <span class="cm">// auto-generated from first message</span>
+  status:     <span class="str">'active' | 'archived'</span>,
+  messageCount: <span class="obj">Number</span>,
+  lastMessageAt: <span class="obj">Date</span>,
+  createdAt, updatedAt
+}</pre>
+  </div>
+  <div class="cb">
+    <div class="ch"><span class="d8" style="background:var(--a3)"></span> ChatMessage document</div>
+    <pre>{
+  sessionId:  ObjectId,
+  userId:     ObjectId,
+  role:       <span class="str">'user' | 'assistant'</span>,
+  content:    <span class="obj">String</span>,
+  matched:    <span class="obj">Boolean</span>,    <span class="cm">// was it found in KB?</span>
+  topDistance: <span class="obj">Number</span>,   <span class="cm">// cosine distance: 0=identical, 2=opposite (lower = more similar)</span>
+  sources:    [{ question: <span class="obj">String</span>, rowIndex: <span class="obj">Number</span> }],
+  tokensUsed: <span class="obj">Number</span>,    <span class="cm">// Azure OpenAI token count</span>
+  createdAt:  <span class="obj">Date</span>
+}</pre>
+  </div>
+</div>
+
+<div class="cb">
+  <div class="ch"><span class="d8" style="background:var(--ok)"></span> KnowledgeBase document</div>
+  <pre>{
+  filename:       <span class="obj">String</span>,
+  originalName:   <span class="obj">String</span>,
+  mimeType:       <span class="str">'text/csv' | 'application/pdf'</span>,
+  fileSizeBytes:  <span class="obj">Number</span>,
+  chunkCount:     <span class="obj">Number</span>,      <span class="cm">// how many Q&amp;A pairs were ingested</span>
+  collectionName: <span class="obj">String</span>,      <span class="cm">// vector store collection name</span>
+  status:         <span class="str">'active' | 'archived' | 'ingesting' | 'failed'</span>,
+  uploadedBy:     ObjectId,
+  ingestedAt:     <span class="obj">Date</span>,
+  errorMessage:   <span class="obj">String</span>,
+  createdAt:      <span class="obj">Date</span>
+}</pre>
+</div>
+
+<div class="sl">Route Architecture</div>
+<div class="cb">
+  <div class="ch"><span class="d8" style="background:var(--lc)"></span> API routes summary</div>
+  <pre><span class="cm">// ─── Chat (authenticated users) ─────────────────────────────────</span>
+POST   /api/chat/message              <span class="cm">// send message, SSE stream response</span>
+GET    /api/chat/sessions             <span class="cm">// list user's chat sessions</span>
+GET    /api/chat/sessions/:id/messages <span class="cm">// load full conversation history</span>
+DELETE /api/chat/sessions/:id         <span class="cm">// delete a session</span>
+
+<span class="cm">// ─── Knowledge Base (admin only) ────────────────────────────────</span>
+POST   /api/admin/knowledge-base      <span class="cm">// upload CSV or PDF, triggers ingestion</span>
+GET    /api/admin/knowledge-base      <span class="cm">// list uploaded files + status</span>
+DELETE /api/admin/knowledge-base/:id  <span class="cm">// delete file + clear vectors</span>
+GET    /api/admin/knowledge-base/:id/preview <span class="cm">// preview parsed Q&amp;A chunks</span>
+
+<span class="cm">// ─── Health ─────────────────────────────────────────────────────</span>
+GET    /api/chat/health               <span class="cm">// check vector store + Azure connection</span></pre>
+</div>
+
+<div class="sl">Security Checklist</div>
+<div class="card">
+  <table class="ctbl">
+    <thead><tr><th>Item</th><th>Implementation</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td>API key in env</td><td>Never in code — process.env only</td><td>Prevent key exposure in git</td></tr>
+      <tr><td>Admin upload route</td><td>authenticate + authorize('admin')</td><td>Only admins change knowledge base</td></tr>
+      <tr><td>File type check</td><td>Multer + mime-type validation</td><td>Prevent non-CSV/PDF uploads</td></tr>
+      <tr><td>Rate limit chat</td><td>20 msg/min/user</td><td>Control Azure OpenAI costs</td></tr>
+      <tr><td>Input length</td><td>Max 500 chars per message</td><td>Prevent prompt injection + cost</td></tr>
+      <tr><td>Prompt injection</td><td>System prompt sets strict boundaries</td><td>Prevent LLM jailbreaks</td></tr>
+      <tr><td>Token budget</td><td>maxTokens: 500 per response</td><td>Cost control on Azure OpenAI</td></tr>
+      <tr><td>Temperature</td><td>temperature: 0.1</td><td>Factual, consistent answers</td></tr>
+    </tbody>
+  </table>
+</div>
+</div>
+
+
+<!-- ═══════════ SCALE ═══════════ -->
+<div class="panel" id="tab-scale">
+<div class="sl">Scaling the RAG Chat</div>
+
+<div class="g2">
+  <div class="card">
+    <div class="ct"><span class="cd" style="background:var(--ok)"></span>Few Users</div>
+    <div class="ir"><span class="ik">Vector store</span><span class="iv">Chroma in Docker (local/single server)</span></div>
+    <div class="ir"><span class="ik">Embedding cache</span><span class="iv">Not needed — small dataset</span></div>
+    <div class="ir"><span class="ik">QA chain</span><span class="iv">Singleton instantiated at startup</span></div>
+    <div class="ir"><span class="ik">Chat history</span><span class="iv">MongoDB — last 5 messages in prompt</span></div>
+    <div class="ir"><span class="ik">Azure tier</span><span class="iv">S0 (standard) — pay per token</span></div>
+    <div class="ir"><span class="ik">Deployment</span><span class="iv">Single Node.js server</span></div>
+  </div>
+  <div class="card">
+    <div class="ct"><span class="cd" style="background:var(--warn)"></span>Millions of Users</div>
+    <div class="ir"><span class="ik">Vector store</span><span class="iv">Azure AI Search (managed, HA)</span></div>
+    <div class="ir"><span class="ik">Embedding cache</span><span class="iv">Redis: cache query embeddings (TTL 1hr)</span></div>
+    <div class="ir"><span class="ik">Response cache</span><span class="iv">Redis: cache identical question answers</span></div>
+    <div class="ir"><span class="ik">Chat history</span><span class="iv">MongoDB + Redis for hot sessions</span></div>
+    <div class="ir"><span class="ik">Azure tier</span><span class="iv">PTU (Provisioned Throughput) for consistent latency</span></div>
+    <div class="ir"><span class="ik">Deployment</span><span class="iv">Horizontally scaled — stateless API pods</span></div>
+  </div>
+</div>
+
+<div class="sl">Complete Package Summary</div>
+<div class="g3">
+  <div class="card">
+    <div class="ct"><span class="cd" style="background:var(--az)"></span>LangChain / AI</div>
+    <div class="ir"><span class="ik">LLM</span><span class="iv">@langchain/openai (AzureChatOpenAI)</span></div>
+    <div class="ir"><span class="ik">Embeddings</span><span class="iv">@langchain/openai (AzureOpenAIEmbeddings)</span></div>
+    <div class="ir"><span class="ik">Vector store</span><span class="iv">@langchain/community (Chroma)</span></div>
+    <div class="ir"><span class="ik">Core</span><span class="iv">@langchain/core, langchain</span></div>
+    <div class="ir"><span class="ik">Chroma client</span><span class="iv">chromadb</span></div>
+  </div>
+  <div class="card">
+    <div class="ct"><span class="cd" style="background:var(--lc)"></span>Parsing</div>
+    <div class="ir"><span class="ik">CSV loading</span><span class="iv">@langchain/community CSVLoader</span></div>
+    <div class="ir"><span class="ik">PDF loading</span><span class="iv">@langchain/community PDFLoader</span></div>
+    <div class="ir"><span class="ik">File upload</span><span class="iv">multer</span></div>
+    <div class="ir"><span class="ik">CSV fallback</span><span class="iv">csv-parse</span></div>
+    <div class="ir"><span class="ik">PDF fallback</span><span class="iv">pdf-parse</span></div>
+  </div>
+  <div class="card">
+    <div class="ct"><span class="cd" style="background:var(--a3)"></span>Frontend</div>
+    <div class="ir"><span class="ik">Streaming</span><span class="iv">fetch() with ReadableStream</span></div>
+    <div class="ir"><span class="ik">Markdown</span><span class="iv">react-markdown</span></div>
+    <div class="ir"><span class="ik">State</span><span class="iv">Zustand</span></div>
+    <div class="ir"><span class="ik">Forms</span><span class="iv">react-hook-form</span></div>
+    <div class="ir"><span class="ik">Auto-scroll</span><span class="iv">useRef + scrollIntoView</span></div>
+  </div>
+</div>
+</div>
+
+</div><!-- /wrap -->
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+function go(n) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('tab-' + n).classList.add('active');
+}
+function toggleTheme(){
+  const html=document.documentElement;
+  const isLight=html.getAttribute('data-theme')==='light';
+  html.setAttribute('data-theme',isLight?'dark':'light');
+  document.getElementById('themeLabel').textContent=isLight?'Light Mode':'Dark Mode';
+  document.querySelector('#themeBtn .icon').textContent=isLight?'🌙':'☀️';
+  localStorage.setItem('theme',isLight?'dark':'light');
+}
+(function(){
+  const saved=localStorage.getItem('theme')||'dark';
+  document.documentElement.setAttribute('data-theme',saved);
+  if(saved==='light'){
+    document.addEventListener('DOMContentLoaded',()=>{
+      document.getElementById('themeLabel').textContent='Dark Mode';
+      document.querySelector('#themeBtn .icon').textContent='☀️';
+    });
+  }
+})();
+</script>
+</body>
+</html>

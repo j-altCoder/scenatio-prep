@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MERN Docs — Architecture Reference</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ─── Variables ─────────────────────────────────────────── */
+:root {
+  --bg:  #07080d;
+  --s1:  #0d0f18;
+  --s2:  #131622;
+  --bd:  #1c2030;
+  --bd2: #2a3050;
+  --tx:  #eef2ff;
+  --mu:  #5a6585;
+  --so:  #8898c0;
+  --auth:  #818cf8;
+  --oauth: #38bdf8;
+  --rbac:  #f472b6;
+  --sched: #a78bfa;
+  --rag:   #34d399;
+}
+[data-theme="light"] {
+  --bg:  #f0f2f9;
+  --s1:  #ffffff;
+  --s2:  #e8ebf5;
+  --bd:  #dce1ef;
+  --bd2: #c0c8df;
+  --tx:  #0d1020;
+  --mu:  #6272a4;
+  --so:  #8898c0;
+  --auth:  #4f46e5;
+  --oauth: #0284c7;
+  --rbac:  #db2777;
+  --sched: #7c3aed;
+  --rag:   #059669;
+}
+
+/* ─── Reset ─────────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);min-height:100vh;overflow-x:hidden;}
+
+/* ─── Background ────────────────────────────────────────── */
+body::before{
+  content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(ellipse 55% 45% at 15% 25%,rgba(129,140,248,.07) 0%,transparent 70%),
+    radial-gradient(ellipse 45% 40% at 85% 75%,rgba(167,139,250,.06) 0%,transparent 70%),
+    radial-gradient(ellipse 35% 30% at 55% 10%,rgba(52,211,153,.04) 0%,transparent 70%);
+}
+[data-theme="light"] body::before{
+  background:
+    radial-gradient(ellipse 55% 45% at 15% 25%,rgba(79,70,229,.05) 0%,transparent 70%),
+    radial-gradient(ellipse 45% 40% at 85% 75%,rgba(124,58,237,.04) 0%,transparent 70%);
+}
+body::after{
+  content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:
+    linear-gradient(rgba(255,255,255,.022) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.022) 1px,transparent 1px);
+  background-size:48px 48px;
+}
+[data-theme="light"] body::after{
+  background-image:
+    linear-gradient(rgba(0,0,20,.04) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,0,20,.04) 1px,transparent 1px);
+}
+
+/* ─── Layout ────────────────────────────────────────────── */
+.wrap{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:0 32px 120px;}
+
+/* ─── Topbar ────────────────────────────────────────────── */
+.topbar{
+  position:sticky;top:0;z-index:100;
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:14px 32px;margin:0 -32px;
+  background:rgba(7,8,13,.88);backdrop-filter:blur(18px);
+  border-bottom:1px solid var(--bd);
+}
+[data-theme="light"] .topbar{background:rgba(240,242,249,.92);}
+
+.topbar-brand{
+  display:flex;align-items:center;gap:10px;
+  font-family:'JetBrains Mono',monospace;
+  font-size:11px;font-weight:500;color:var(--so);letter-spacing:.5px;
+  white-space:nowrap;
+}
+.topbar-dot{
+  width:8px;height:8px;border-radius:50%;
+  background:var(--auth);box-shadow:0 0 10px var(--auth);
+  animation:pulse 2.5s ease-in-out infinite;flex-shrink:0;
+}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.5;transform:scale(.85);}}
+
+.topbar-nav{display:flex;align-items:center;gap:5px;flex-wrap:wrap;}
+.nav-pill{
+  font-family:'JetBrains Mono',monospace;
+  font-size:10px;font-weight:500;letter-spacing:.4px;
+  padding:5px 11px;border-radius:6px;
+  border:1px solid var(--bd);color:var(--mu);
+  text-decoration:none;transition:all .15s;white-space:nowrap;
+}
+.nav-pill:hover{border-color:var(--so);color:var(--tx);}
+.nav-pill.np-auth:hover {border-color:var(--auth); color:var(--auth);}
+.nav-pill.np-oauth:hover{border-color:var(--oauth);color:var(--oauth);}
+.nav-pill.np-rbac:hover {border-color:var(--rbac); color:var(--rbac);}
+.nav-pill.np-sched:hover{border-color:var(--sched);color:var(--sched);}
+.nav-pill.np-rag:hover  {border-color:var(--rag);  color:var(--rag);}
+
+.theme-btn{
+  display:flex;align-items:center;gap:7px;
+  padding:6px 14px;border-radius:8px;
+  border:1px solid var(--bd);background:var(--s1);color:var(--mu);
+  font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;
+  cursor:pointer;transition:all .2s;white-space:nowrap;
+}
+.theme-btn:hover{border-color:var(--bd2);color:var(--tx);}
+
+/* ─── Hero ──────────────────────────────────────────────── */
+.hero{padding:80px 0 56px;}
+.hero-eyebrow{
+  display:inline-flex;align-items:center;gap:8px;
+  font-family:'JetBrains Mono',monospace;
+  font-size:10px;letter-spacing:3px;text-transform:uppercase;
+  color:var(--mu);border:1px solid var(--bd);
+  padding:5px 14px;border-radius:20px;margin-bottom:28px;
+  animation:fadeUp .5s ease both;
+}
+.hero-eyebrow::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--rag);box-shadow:0 0 8px var(--rag);}
+
+.hero-title{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:clamp(60px,9vw,116px);line-height:.92;letter-spacing:1px;color:var(--tx);
+  animation:fadeUp .5s .06s ease both;
+}
+.hero-title .accent{
+  display:block;
+  -webkit-text-stroke:1.5px var(--auth);color:transparent;
+}
+[data-theme="light"] .hero-title .accent{-webkit-text-stroke:2px var(--auth);}
+
+.hero-body{
+  margin-top:24px;font-size:15px;color:var(--so);line-height:1.75;max-width:580px;
+  animation:fadeUp .5s .12s ease both;
+}
+
+.hero-stats{
+  display:flex;margin-top:48px;
+  border:1px solid var(--bd);border-radius:12px;overflow:hidden;width:fit-content;
+  animation:fadeUp .5s .18s ease both;
+}
+.hstat{padding:18px 32px;border-right:1px solid var(--bd);}
+.hstat:last-child{border-right:none;}
+.hstat-n{font-family:'Bebas Neue',sans-serif;font-size:34px;line-height:1;color:var(--tx);}
+.hstat-l{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--mu);margin-top:4px;}
+
+/* ─── Section label ─────────────────────────────────────── */
+.sec-title{
+  font-family:'JetBrains Mono',monospace;
+  font-size:10px;letter-spacing:3.5px;text-transform:uppercase;color:var(--mu);
+  display:flex;align-items:center;gap:16px;margin-bottom:22px;
+}
+.sec-title::before{content:'//';color:var(--bd2);font-size:12px;}
+.sec-title::after{content:'';flex:1;height:1px;background:var(--bd);}
+
+/* ─── Card grids ────────────────────────────────────────── */
+.cards-top{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:14px;}
+.cards-bot{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;}
+
+/* ─── Card ──────────────────────────────────────────────── */
+.card{
+  position:relative;background:var(--s1);border:1px solid var(--bd);border-radius:14px;
+  padding:26px 24px 22px;text-decoration:none;color:inherit;
+  display:flex;flex-direction:column;overflow:hidden;
+  transition:border-color .2s,transform .25s,box-shadow .25s;
+  animation:fadeUp .5s ease both;
+}
+.cards-top .card:nth-child(1){animation-delay:.08s;}
+.cards-top .card:nth-child(2){animation-delay:.14s;}
+.cards-top .card:nth-child(3){animation-delay:.2s;}
+.cards-bot .card:nth-child(1){animation-delay:.26s;}
+.cards-bot .card:nth-child(2){animation-delay:.32s;}
+
+.card[data-ac="auth"] {--ac:var(--auth);}
+.card[data-ac="oauth"]{--ac:var(--oauth);}
+.card[data-ac="rbac"] {--ac:var(--rbac);}
+.card[data-ac="sched"]{--ac:var(--sched);}
+.card[data-ac="rag"]  {--ac:var(--rag);}
+
+/* glow blob */
+.card::before{
+  content:'';position:absolute;top:-60px;right:-60px;
+  width:180px;height:180px;border-radius:50%;
+  background:var(--ac);opacity:.04;filter:blur(40px);
+  transition:opacity .3s;pointer-events:none;
+}
+/* top line */
+.card::after{
+  content:'';position:absolute;top:0;left:0;right:100%;height:2px;
+  background:var(--ac);transition:right .35s cubic-bezier(.16,1,.3,1);
+  border-radius:2px 2px 0 0;
+}
+.card:hover{transform:translateY(-4px);border-color:var(--ac);box-shadow:0 12px 40px rgba(0,0,0,.28);}
+[data-theme="light"] .card:hover{box-shadow:0 12px 40px rgba(0,0,0,.1);}
+.card:hover::before{opacity:.1;}
+.card:hover::after{right:0;}
+
+.card-idx{
+  font-family:'Bebas Neue',sans-serif;font-size:11px;letter-spacing:3px;
+  color:var(--mu);margin-bottom:14px;display:flex;align-items:center;gap:8px;
+}
+.card-idx::after{content:'';flex:1;height:1px;background:var(--bd);}
+
+.card-emoji{font-size:28px;margin-bottom:12px;display:block;transition:transform .2s;filter:drop-shadow(0 0 10px var(--ac));}
+.card:hover .card-emoji{transform:scale(1.12) rotate(-3deg);}
+
+.card-title{font-family:'Bebas Neue',sans-serif;font-size:21px;line-height:1.05;letter-spacing:.5px;color:var(--tx);margin-bottom:10px;}
+
+.card-desc{font-size:12.5px;color:var(--mu);line-height:1.7;flex:1;margin-bottom:18px;}
+
+.card-tags{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:18px;}
+.tag{
+  font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.4px;
+  padding:3px 8px;border:1px solid var(--bd);border-radius:4px;
+  color:var(--mu);background:var(--s2);transition:all .15s;
+}
+.card:hover .tag{border-color:color-mix(in srgb,var(--ac) 40%,var(--bd));color:var(--ac);}
+
+.card-cta{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 14px;border:1px solid var(--bd);border-radius:8px;
+  background:var(--s2);font-size:12px;font-weight:600;color:var(--mu);transition:all .2s;
+}
+.card:hover .card-cta{background:var(--ac);border-color:var(--ac);color:#fff;}
+.cta-arrow{font-size:15px;transition:transform .2s;}
+.card:hover .cta-arrow{transform:translateX(5px);}
+
+/* ─── Stack row ─────────────────────────────────────────── */
+.stack-sec{margin-top:64px;}
+.stack-row{display:flex;flex-wrap:wrap;gap:8px;}
+.stk{
+  display:flex;align-items:center;gap:8px;padding:8px 14px;
+  border-radius:8px;border:1px solid var(--bd);background:var(--s1);
+  font-size:12px;color:var(--so);transition:border-color .15s,color .15s;
+}
+.stk:hover{border-color:var(--bd2);color:var(--tx);}
+.stk-icon{font-size:15px;}
+
+/* ─── Footer ────────────────────────────────────────────── */
+footer{
+  margin-top:72px;padding-top:24px;border-top:1px solid var(--bd);
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;
+}
+.ft-left{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;color:var(--mu);}
+.ft-links{display:flex;gap:16px;}
+.ft-links a{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.5px;color:var(--mu);text-decoration:none;transition:color .15s;}
+.ft-links a:hover{color:var(--auth);}
+
+/* ─── Anim ──────────────────────────────────────────────── */
+@keyframes fadeUp{from{opacity:0;transform:translateY(18px);}to{opacity:1;transform:translateY(0);}}
+
+/* ─── Responsive ────────────────────────────────────────── */
+@media(max-width:900px){.cards-top{grid-template-columns:repeat(2,1fr);}.cards-bot{grid-template-columns:1fr;}.topbar-nav{display:none;}}
+@media(max-width:600px){
+  .wrap{padding:0 18px 80px;}
+  .cards-top,.cards-bot{grid-template-columns:1fr;}
+  .hero-stats{flex-direction:column;width:100%;}
+  .hstat{border-right:none;border-bottom:1px solid var(--bd);}
+  .hstat:last-child{border-bottom:none;}
+  .hero-title{font-size:54px;}
+  .topbar{padding:14px 18px;}
+}
+::-webkit-scrollbar{width:5px;}
+::-webkit-scrollbar-track{background:var(--bg);}
+::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:3px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- Topbar -->
+  <nav class="topbar">
+    <div class="topbar-brand">
+      <div class="topbar-dot"></div>
+      MERN DOCS
+    </div>
+    <div class="topbar-nav">
+      <a class="nav-pill np-auth"  href="auth-flow-diagram.html">Auth</a>
+      <a class="nav-pill np-oauth" href="oauth-flow-diagram.html">OAuth</a>
+      <a class="nav-pill np-rbac"  href="rbac-diagram.html">RBAC</a>
+      <a class="nav-pill np-sched" href="scheduler-diagram.html">Scheduler</a>
+      <a class="nav-pill np-rag"   href="rag-chat-diagram.html">RAG Chat</a>
+    </div>
+    <button class="theme-btn" onclick="toggleTheme()" id="themeBtn">
+      <span id="themeIcon">🌙</span><span id="themeLabel">Light</span>
+    </button>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-eyebrow">MERN Stack · Production Architecture · 5 Docs</div>
+    <h1 class="hero-title">
+      Architecture<br>
+      <span class="accent">Reference</span>
+    </h1>
+    <p class="hero-body">
+      End-to-end implementation guides for a production MERN stack — authentication,
+      OAuth, role-based access, social media scheduling with FFmpeg transcoding,
+      and a RAG chat API powered by LangChain &amp; Azure OpenAI.
+      Every diagram has light &amp; dark themes and tabbed sections.
+    </p>
+    <div class="hero-stats">
+      <div class="hstat"><div class="hstat-n">5</div><div class="hstat-l">Diagrams</div></div>
+      <div class="hstat"><div class="hstat-n">38</div><div class="hstat-l">Tabs</div></div>
+      <div class="hstat"><div class="hstat-n">6</div><div class="hstat-l">Platforms</div></div>
+      <div class="hstat"><div class="hstat-n">☀/🌙</div><div class="hstat-l">Themes</div></div>
+    </div>
+  </section>
+
+  <!-- Row 1: 3 cards -->
+  <div class="sec-title">Documentation</div>
+  <div class="cards-top">
+
+    <a class="card" data-ac="auth" href="auth-flow-diagram.html">
+      <div class="card-idx">01 &nbsp;AUTH</div>
+      <span class="card-emoji">🔐</span>
+      <div class="card-title">Email & Password Auth</div>
+      <p class="card-desc">Registration, login, JWT access tokens (15 min), opaque refresh tokens with rotation & replay detection, email verification, and password reset via BullMQ. Every token SHA-256 hashed before storage.</p>
+      <div class="card-tags">
+        <span class="tag">Login</span><span class="tag">Token Flow</span>
+        <span class="tag">Refresh Rotation</span><span class="tag">Password Reset</span>
+        <span class="tag">bcrypt</span><span class="tag">SHA-256</span>
+      </div>
+      <div class="card-cta"><span>Open Diagram</span><span class="cta-arrow">→</span></div>
+    </a>
+
+    <a class="card" data-ac="oauth" href="oauth-flow-diagram.html">
+      <div class="card-idx">02 &nbsp;OAUTH</div>
+      <span class="card-emoji">🔗</span>
+      <div class="card-title">Google & Facebook OAuth</div>
+      <p class="card-desc">Passport.js OAuth 2.0 — Google OpenID Connect & Facebook Graph API. CSRF state params, short-lived code exchange for cross-domain setups, account linking, profileFields config, and Facebook App Review notes.</p>
+      <div class="card-tags">
+        <span class="tag">Google Flow</span><span class="tag">Facebook Flow</span>
+        <span class="tag">CSRF State</span><span class="tag">Account Linking</span>
+        <span class="tag">Code Exchange</span><span class="tag">Scale</span>
+      </div>
+      <div class="card-cta"><span>Open Diagram</span><span class="cta-arrow">→</span></div>
+    </a>
+
+    <a class="card" data-ac="rbac" href="rbac-diagram.html">
+      <div class="card-idx">03 &nbsp;RBAC</div>
+      <span class="card-emoji">🛡️</span>
+      <div class="card-title">Role-Based Access Control</div>
+      <p class="card-desc">6-tier role hierarchy (guest → superadmin), static PERMISSIONS map, JWT roleVersion for instant invalidation, Express middleware chain, React ProtectedRoute & Can component, advanced ABAC ownership patterns.</p>
+      <div class="card-tags">
+        <span class="tag">Roles</span><span class="tag">Permissions</span>
+        <span class="tag">Middleware</span><span class="tag">Frontend Guards</span>
+        <span class="tag">roleVersion</span><span class="tag">ABAC</span>
+      </div>
+      <div class="card-cta"><span>Open Diagram</span><span class="cta-arrow">→</span></div>
+    </a>
+
+  </div>
+
+  <!-- Row 2: 2 cards -->
+  <div class="cards-bot">
+
+    <a class="card" data-ac="sched" href="scheduler-diagram.html">
+      <div class="card-idx">04 &nbsp;SCHEDULER</div>
+      <span class="card-emoji">📅</span>
+      <div class="card-title">Social Media Scheduler</div>
+      <p class="card-desc">Schedule image & video posts to 6 platforms (Instagram, Facebook, X, LinkedIn, YouTube, TikTok). BullMQ one-job-per-platform isolation, FFmpeg probe + transcode per platform spec, Instagram video container polling, WebSocket notifications, AES-256-GCM token encryption.</p>
+      <div class="card-tags">
+        <span class="tag">Upload Flow</span><span class="tag">BullMQ</span>
+        <span class="tag">FFmpeg</span><span class="tag">sharp (images)</span>
+        <span class="tag">Platform APIs</span><span class="tag">WebSocket</span>
+        <span class="tag">6 Platforms</span><span class="tag">Scale</span>
+      </div>
+      <div class="card-cta"><span>Open Diagram</span><span class="cta-arrow">→</span></div>
+    </a>
+
+    <a class="card" data-ac="rag" href="rag-chat-diagram.html">
+      <div class="card-idx">05 &nbsp;RAG CHAT</div>
+      <span class="card-emoji">🤖</span>
+      <div class="card-title">RAG Chat — LangChain & Azure OpenAI</div>
+      <p class="card-desc">Upload a CSV or PDF Q&A knowledge base, embed with Azure text-embedding-ada-002, cosine similarity search via Chroma with distance threshold gating. Answers from context or escalates to support number. SSE streaming responses with chat history.</p>
+      <div class="card-tags">
+        <span class="tag">RAG Pipeline</span><span class="tag">Ingestion</span>
+        <span class="tag">Vector Search</span><span class="tag">LangChain</span>
+        <span class="tag">Azure OpenAI</span><span class="tag">SSE Streaming</span>
+        <span class="tag">Chroma</span>
+      </div>
+      <div class="card-cta"><span>Open Diagram</span><span class="cta-arrow">→</span></div>
+    </a>
+
+  </div>
+
+  <!-- Stack -->
+  <div class="stack-sec">
+    <div class="sec-title" style="margin-top:60px">Full Tech Stack</div>
+    <div class="stack-row">
+      <div class="stk"><span class="stk-icon">⚛️</span>React</div>
+      <div class="stk"><span class="stk-icon">🟢</span>Node.js</div>
+      <div class="stk"><span class="stk-icon">🚂</span>Express</div>
+      <div class="stk"><span class="stk-icon">🍃</span>MongoDB</div>
+      <div class="stk"><span class="stk-icon">🔴</span>Redis</div>
+      <div class="stk"><span class="stk-icon">⚙️</span>BullMQ</div>
+      <div class="stk"><span class="stk-icon">🔌</span>Socket.io</div>
+      <div class="stk"><span class="stk-icon">🎬</span>FFmpeg</div>
+      <div class="stk"><span class="stk-icon">🖼️</span>sharp</div>
+      <div class="stk"><span class="stk-icon">🤖</span>Azure OpenAI</div>
+      <div class="stk"><span class="stk-icon">🦜</span>LangChain</div>
+      <div class="stk"><span class="stk-icon">🎯</span>Chroma</div>
+      <div class="stk"><span class="stk-icon">🔑</span>JWT + bcrypt</div>
+      <div class="stk"><span class="stk-icon">🛂</span>Passport.js</div>
+      <div class="stk"><span class="stk-icon">📦</span>Zod</div>
+      <div class="stk"><span class="stk-icon">☁️</span>S3 / Cloudinary</div>
+      <div class="stk"><span class="stk-icon">📧</span>Resend / SES</div>
+      <div class="stk"><span class="stk-icon">🛡️</span>helmet</div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer>
+    <div class="ft-left">MERN ARCHITECTURE DOCS · 5 FILES · LIGHT &amp; DARK THEMES</div>
+    <div class="ft-links">
+      <a href="auth-flow-diagram.html">Auth</a>
+      <a href="oauth-flow-diagram.html">OAuth</a>
+      <a href="rbac-diagram.html">RBAC</a>
+      <a href="scheduler-diagram.html">Scheduler</a>
+      <a href="rag-chat-diagram.html">RAG Chat</a>
+    </div>
+  </footer>
+
+</div>
+
+<script>
+function toggleTheme(){
+  const html=document.documentElement;
+  const isLight=html.getAttribute('data-theme')==='light';
+  html.setAttribute('data-theme',isLight?'dark':'light');
+  document.getElementById('themeIcon').textContent=isLight?'🌙':'☀️';
+  document.getElementById('themeLabel').textContent=isLight?'Light':'Dark';
+  localStorage.setItem('theme',isLight?'dark':'light');
+}
+(function(){
+  const saved=localStorage.getItem('theme')||'dark';
+  document.documentElement.setAttribute('data-theme',saved);
+  if(saved==='light'){
+    document.addEventListener('DOMContentLoaded',()=>{
+      document.getElementById('themeIcon').textContent='☀️';
+      document.getElementById('themeLabel').textContent='Dark';
+    });
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Social Media Scheduler — Implementation Guide</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Raleway:wght@300;400;500;600;700;800;900&family=IBM+Plex+Mono:wght@300;400;500&display=swap');
+:root{
+  --bg:#05070b;--s1:#0a0d14;--s2:#0f1520;--bd:#1a2035;--bd2:#263050;
+  --tx:#eef2ff;--mu:#5a6a8a;--so:#8899bb;
+  --ig:#e1306c;--fb:#1877f2;--tw:#1da1f2;--li:#0077b5;--yt:#ff0000;--tk:#69c9d0;
+  --ok:#22c55e;--warn:#f59e0b;--err:#ef4444;--info:#6366f1;
+  --q1:#6366f1;--q2:#8b5cf6;--q3:#ec4899;
+  --file:#f97316;--bull:#06b6d4;--ws:#10b981;--notif:#f59e0b;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--tx);font-family:'Raleway',sans-serif;min-height:100vh;}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 80% 50% at 50% -20%,rgba(99,102,241,.08),transparent);pointer-events:none;z-index:0;}
+
+.wrap{position:relative;z-index:1;max-width:1400px;margin:0 auto;padding:48px 24px 100px;}
+
+/* Header */
+.header{margin-bottom:52px;animation:up .6s cubic-bezier(.16,1,.3,1) both;}
+.eyebrow{display:flex;align-items:center;gap:8px;margin-bottom:18px;flex-wrap:wrap;}
+.badge{font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;padding:5px 12px;border-radius:4px;border:1px solid;font-family:'IBM Plex Mono',monospace;}
+.bq{color:#818cf8;border-color:rgba(99,102,241,.3);background:rgba(99,102,241,.08);}
+.bm{color:var(--mu);border-color:var(--bd);background:transparent;}
+.header h1{font-size:clamp(28px,4.5vw,56px);font-weight:900;letter-spacing:-2px;line-height:1.02;}
+.header h1 .g1{background:linear-gradient(135deg,#818cf8,#ec4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.header p{margin-top:14px;font-size:13.5px;color:var(--mu);font-weight:400;line-height:1.7;max-width:640px;}
+
+/* Platform badges */
+.platforms{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;}
+.plat{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:99px;font-size:11px;font-weight:700;border:1px solid;}
+.p-ig{color:var(--ig);border-color:rgba(225,48,108,.3);background:rgba(225,48,108,.08);}
+.p-fb{color:var(--fb);border-color:rgba(24,119,242,.3);background:rgba(24,119,242,.08);}
+.p-tw{color:var(--tw);border-color:rgba(29,161,242,.3);background:rgba(29,161,242,.08);}
+.p-li{color:var(--li);border-color:rgba(0,119,181,.3);background:rgba(0,119,181,.08);}
+.p-yt{color:var(--yt);border-color:rgba(255,0,0,.3);background:rgba(255,0,0,.08);}
+.p-tk{color:var(--tk);border-color:rgba(105,201,208,.3);background:rgba(105,201,208,.08);}
+
+/* Tabs */
+.tabs{display:flex;gap:1px;margin-bottom:38px;background:var(--bd);border-radius:8px;padding:1px;width:fit-content;max-width:100%;overflow-x:auto;animation:up .6s .07s cubic-bezier(.16,1,.3,1) both;}
+.tab{padding:10px 20px;border-radius:7px;font-family:'Raleway',sans-serif;font-size:12px;font-weight:700;cursor:pointer;border:none;background:var(--s1);color:var(--mu);transition:all .18s;white-space:nowrap;letter-spacing:.5px;}
+.tab.active{background:var(--s2);color:var(--tx);border:1px solid var(--bd2);}
+.tab:hover:not(.active){color:var(--tx);background:var(--s2);}
+
+.panel{display:none;}.panel.active{display:block;animation:fi .3s ease both;}
+
+/* Section label */
+.sl{font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--mu);margin-bottom:16px;display:flex;align-items:center;gap:12px;font-family:'IBM Plex Mono',monospace;}
+.sl::after{content:'';flex:1;height:1px;background:var(--bd);}
+
+/* Grids */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:16px;}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px;}
+@media(max-width:1000px){.g4{grid-template-columns:1fr 1fr;}}
+@media(max-width:800px){.g2,.g3{grid-template-columns:1fr;}.g4{grid-template-columns:1fr;}}
+
+/* Cards */
+.card{background:var(--s1);border:1px solid var(--bd);border-radius:12px;padding:18px 20px;transition:border-color .2s;}
+.card:hover{border-color:var(--bd2);}
+.ct{font-size:12px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;margin-bottom:14px;display:flex;align-items:center;gap:10px;}
+.cd{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+
+/* Info rows */
+.ir{display:flex;justify-content:space-between;align-items:flex-start;padding:7px 0;border-bottom:1px solid var(--bd);gap:12px;}
+.ir:last-child{border-bottom:none;}
+.ik{font-size:11px;color:var(--mu);flex-shrink:0;font-weight:500;}
+.iv{font-size:11px;color:var(--tx);text-align:right;line-height:1.5;}
+
+/* Pills */
+.pill{display:inline-block;padding:2px 10px;border-radius:4px;font-size:10px;font-weight:700;border:1px solid;letter-spacing:.5px;font-family:'IBM Plex Mono',monospace;}
+.pg{color:#4ade80;border-color:rgba(74,222,128,.3);background:rgba(74,222,128,.07);}
+.pr{color:#f87171;border-color:rgba(248,113,113,.3);background:rgba(248,113,113,.07);}
+.pa{color:#fbbf24;border-color:rgba(251,191,36,.3);background:rgba(251,191,36,.07);}
+.pb{color:#818cf8;border-color:rgba(129,140,248,.3);background:rgba(129,140,248,.07);}
+.pc{color:#22d3ee;border-color:rgba(34,211,238,.3);background:rgba(34,211,238,.07);}
+.pp{color:#c084fc;border-color:rgba(192,132,252,.3);background:rgba(192,132,252,.07);}
+
+/* Notes */
+.note{padding:13px 16px;border-radius:8px;font-size:12px;line-height:1.7;border-left:3px solid;margin-bottom:16px;}
+.ni{background:rgba(99,102,241,.07);border-color:var(--q1);color:#a5b4fc;}
+.nw{background:rgba(245,158,11,.07);border-color:var(--warn);color:#fcd34d;}
+.no{background:rgba(34,197,94,.07);border-color:var(--ok);color:#86efac;}
+.ne{background:rgba(239,68,68,.07);border-color:var(--err);color:#fca5a5;}
+
+/* Code blocks */
+.cb{background:var(--s2);border:1px solid var(--bd);border-radius:10px;padding:18px 20px;margin-bottom:16px;overflow-x:auto;}
+.ch{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--mu);margin-bottom:12px;display:flex;align-items:center;gap:8px;font-family:'IBM Plex Mono',monospace;}
+pre{font-family:'IBM Plex Mono',monospace;font-size:11.5px;line-height:1.85;color:var(--mu);white-space:pre-wrap;word-break:break-word;}
+pre .kw{color:#c084fc;}pre .str{color:#86efac;}pre .fn{color:#67e8f9;}pre .cm{color:#2a3a5a;font-style:italic;}pre .num{color:#fcd34d;}pre .obj{color:#fb923c;}pre .key{color:#93c5fd;}
+
+/* Timeline */
+.tl{position:relative;padding-left:30px;margin-bottom:16px;}
+.tl::before{content:'';position:absolute;left:8px;top:6px;bottom:6px;width:2px;border-radius:2px;background:linear-gradient(to bottom,var(--q1),var(--q2),var(--q3));}
+.tli{position:relative;margin-bottom:22px;}
+.tli::before{content:'';position:absolute;left:-24px;top:5px;width:10px;height:10px;border-radius:50%;background:var(--bg);border:2px solid var(--bd2);}
+.tli.so::before{border-color:var(--ok);}.tli.se::before{border-color:var(--err);}.tli.sw::before{border-color:var(--warn);}.tli.si::before{border-color:var(--q1);}
+.tlt{font-size:13px;font-weight:800;color:var(--tx);margin-bottom:5px;display:flex;align-items:center;flex-wrap:wrap;gap:8px;}
+.tld{font-size:11.5px;color:var(--mu);line-height:1.7;font-weight:400;}
+
+/* Flow steps horizontal */
+.fflow{display:flex;align-items:stretch;overflow-x:auto;margin-bottom:16px;gap:0;}
+.ffs{display:flex;flex-direction:column;align-items:center;min-width:140px;flex:1;}
+.ffb{background:var(--s1);border:1px solid var(--bd);border-radius:10px;padding:16px 12px;text-align:center;width:100%;font-size:11px;line-height:1.5;height:100%;transition:border-color .2s;}
+.ffb:hover{border-color:var(--bd2);}
+.ffi{font-size:22px;margin-bottom:8px;}
+.fft{font-size:10.5px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;margin-bottom:4px;}
+.ffd{font-size:10px;color:var(--mu);}
+.ffa{display:flex;align-items:center;padding:0 4px;min-width:28px;color:var(--bd2);font-size:16px;flex-shrink:0;}
+
+/* Queue visual */
+.queue{display:flex;flex-direction:column;gap:8px;margin-bottom:16px;}
+.qitem{background:var(--s1);border:1px solid var(--bd);border-radius:8px;padding:12px 16px;display:flex;align-items:center;gap:12px;font-size:11.5px;}
+.qitem .qi-status{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.qitem .qi-label{color:var(--mu);font-size:10px;font-family:'IBM Plex Mono',monospace;letter-spacing:.5px;}
+.qitem .qi-title{color:var(--tx);font-weight:600;flex:1;}
+.qitem .qi-time{color:var(--mu);font-size:10px;font-family:'IBM Plex Mono',monospace;margin-left:auto;}
+
+/* Platform grid */
+.plat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:16px;}
+.plat-card{background:var(--s1);border:1px solid var(--bd);border-radius:10px;padding:16px 18px;transition:border-color .2s;}
+.plat-card:hover{border-color:var(--bd2);}
+.plat-name{font-size:12px;font-weight:800;letter-spacing:.5px;margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+.plat-logo{width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+
+/* Notification demo */
+.notif-demo{display:flex;flex-direction:column;gap:10px;margin-bottom:16px;}
+.notif{padding:14px 18px;border-radius:10px;display:flex;align-items:flex-start;gap:12px;border:1px solid;animation:slideIn .4s cubic-bezier(.16,1,.3,1) both;}
+.notif.ok{background:rgba(34,197,94,.08);border-color:rgba(34,197,94,.25);}
+.notif.err{background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.25);}
+.notif.warn{background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.25);}
+.notif.info{background:rgba(99,102,241,.08);border-color:rgba(99,102,241,.25);}
+.notif-icon{font-size:18px;flex-shrink:0;margin-top:1px;}
+.notif-body .notif-title{font-size:13px;font-weight:800;margin-bottom:3px;}
+.notif-body .notif-title.ok{color:#4ade80;}
+.notif-body .notif-title.err{color:#f87171;}
+.notif-body .notif-title.warn{color:#fbbf24;}
+.notif-body .notif-title.info{color:#818cf8;}
+.notif-body .notif-msg{font-size:11.5px;color:var(--mu);line-height:1.5;}
+.notif-time{font-size:10px;color:var(--mu);font-family:'IBM Plex Mono',monospace;margin-left:auto;flex-shrink:0;}
+
+/* DB schema */
+.schema{background:var(--s2);border:1px solid var(--bd);border-radius:10px;padding:18px 20px;margin-bottom:16px;overflow-x:auto;}
+.schema pre{font-family:'IBM Plex Mono',monospace;font-size:11.5px;line-height:1.85;color:var(--mu);white-space:pre;}
+
+/* Comparison table */
+.ctbl{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px;}
+.ctbl th{padding:11px 14px;text-align:left;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--mu);border-bottom:1px solid var(--bd2);font-family:'IBM Plex Mono',monospace;}
+.ctbl td{padding:10px 14px;border-bottom:1px solid var(--bd);color:var(--tx);vertical-align:top;line-height:1.5;}
+.ctbl td:first-child{color:var(--mu);font-size:11px;font-weight:600;}
+.ctbl tr:last-child td{border-bottom:none;}.ctbl tr:hover td{background:var(--s2);}
+
+.d8{width:8px;height:8px;border-radius:50%;display:inline-block;}
+code.ic{font-family:'IBM Plex Mono',monospace;font-size:11px;background:var(--s2);border:1px solid var(--bd);border-radius:3px;padding:1px 6px;color:#67e8f9;}
+.gap{height:16px;}
+
+@keyframes up{from{opacity:0;transform:translateY(24px);}to{opacity:1;transform:translateY(0);}}
+@keyframes fi{from{opacity:0;}to{opacity:1;}}
+@keyframes slideIn{from{opacity:0;transform:translateX(16px);}to{opacity:1;transform:translateX(0);}}
+::-webkit-scrollbar{width:5px;height:5px;}::-webkit-scrollbar-track{background:var(--bg);}::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:3px;}
+
+/* ── Light theme ─────────────────────────────────────────── */
+[data-theme="light"]{
+  --bg:#f4f6fb;--s1:#ffffff;--s2:#eef2f7;--bd:#dde3ee;--bd2:#c7d2e0;
+  --tx:#0f172a;--mu:#64748b;--so:#94a3b8;
+  --ig:#e1306c;--fb:#1877f2;--tw:#1da1f2;--li:#0077b5;--yt:#cc0000;--tk:#00a8b5;
+  --ok:#15803d;--warn:#b45309;--err:#dc2626;--info:#4338ca;
+  --q1:#4338ca;--q2:#7c3aed;--q3:#be185d;
+  --file:#c2410c;--bull:#0369a1;--ws:#166534;--notif:#b45309;
+}
+[data-theme="light"] body{background:var(--bg);}
+[data-theme="light"] body::before{background:radial-gradient(ellipse 80% 50% at 50% -20%,rgba(67,56,202,.06),transparent);}
+[data-theme="light"] .card{background:var(--s1);}
+[data-theme="light"] .cb{background:var(--s2);}
+[data-theme="light"] .note.ni{background:rgba(67,56,202,0.06);border-color:rgba(67,56,202,0.3);color:#3730a3;}
+[data-theme="light"] .note.nw{background:rgba(180,83,9,0.06);border-color:rgba(180,83,9,0.3);color:#92400e;}
+[data-theme="light"] .note.no{background:rgba(21,128,61,0.06);border-color:rgba(21,128,61,0.3);color:#14532d;}
+[data-theme="light"] .note.ne{background:rgba(220,38,38,0.06);border-color:rgba(220,38,38,0.3);color:#991b1b;}
+[data-theme="light"] .note.nq{background:rgba(67,56,202,0.06);border-color:rgba(67,56,202,0.3);color:#3730a3;}
+[data-theme="light"] pre{color:#334155;}
+[data-theme="light"] .tabs{background:var(--bd);}
+[data-theme="light"] .tab{background:var(--s2);color:var(--mu);}
+[data-theme="light"] .tab.active{background:var(--s1);color:var(--tx);border-color:var(--bd2);}
+[data-theme="light"] .fflow .ffb{background:var(--s1);}
+[data-theme="light"] .plat-card{background:var(--s1);}
+[data-theme="light"] .plat-grid .ir{border-color:var(--bd);}
+[data-theme="light"] .qitem{background:var(--s1);}
+[data-theme="light"] .ctbl th{border-color:var(--bd2);color:var(--mu);}
+[data-theme="light"] .ctbl td{border-color:var(--bd);color:var(--tx);}
+[data-theme="light"] .ctbl tr:hover td{background:var(--s2);}
+[data-theme="light"] .notif-card{background:var(--s1);}
+[data-theme="light"] .sl{color:var(--mu);}
+[data-theme="light"] .sl::after{background:var(--bd);}
+[data-theme="light"] ::-webkit-scrollbar-track{background:#f1f5f9;}
+[data-theme="light"] ::-webkit-scrollbar-thumb{background:#cbd5e1;}
+
+/* ── Toggle button ───────────────────────────────────────── */
+.theme-btn{position:fixed;top:18px;right:20px;z-index:9999;display:flex;align-items:center;gap:8px;padding:8px 16px;border-radius:20px;cursor:pointer;border:1px solid var(--bd);background:var(--s1);color:var(--tx);font-family:'Raleway',sans-serif;font-size:11px;font-weight:700;letter-spacing:0.5px;box-shadow:0 2px 12px rgba(0,0,0,0.2);transition:all 0.2s;}
+.theme-btn:hover{border-color:var(--q1);transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,0,0,0.25);}
+</style>
+</head>
+<body>
+<style>
+.backnav{position:sticky;top:0;z-index:200;display:flex;align-items:center;justify-content:space-between;padding:11px 28px;background:rgba(5,7,11,.88);backdrop-filter:blur(16px);border-bottom:1px solid var(--bd);gap:16px;}
+[data-theme="light"] .backnav{background:rgba(244,246,251,.92);}
+.backnav-left{display:flex;align-items:center;gap:12px;}
+.backnav-home{display:flex;align-items:center;gap:8px;text-decoration:none;font-family:"Raleway",sans-serif;font-size:11px;font-weight:500;letter-spacing:.5px;color:var(--mu);border:1px solid var(--bd);padding:6px 14px;border-radius:8px;transition:all .2s;}
+.backnav-home:hover{color:var(--q1);border-color:var(--q1);}
+.backnav-sep{color:var(--bd);font-size:14px;}
+.backnav-title{font-family:"Raleway",sans-serif;font-size:11px;color:var(--mu);letter-spacing:.5px;}
+.backnav-pills{display:flex;gap:6px;flex-wrap:wrap;}
+.backnav-pill{text-decoration:none;font-family:"Raleway",sans-serif;font-size:10px;letter-spacing:.4px;padding:4px 10px;border-radius:5px;border:1px solid var(--bd);color:var(--mu);transition:all .15s;white-space:nowrap;}
+.backnav-pill:hover{border-color:var(--q1);color:var(--q1);}
+.backnav-pill.cur{border-color:var(--q1);color:var(--q1);background:rgba(99,102,241,.07);}
+@media(max-width:700px){.backnav-pills{display:none;}}
+</style>
+<nav class="backnav">
+  <div class="backnav-left">
+    <a class="backnav-home" href="index.html">← Index</a>
+    <span class="backnav-sep">/</span>
+    <span class="backnav-title">Social Media Scheduler</span>
+  </div>
+  <div class="backnav-pills">
+    <a class="backnav-pill " href="auth-flow-diagram.html">Auth</a>
+    <a class="backnav-pill " href="oauth-flow-diagram.html">OAuth</a>
+    <a class="backnav-pill " href="rbac-diagram.html">RBAC</a>
+    <a class="backnav-pill cur" href="scheduler-diagram.html">Scheduler</a>
+    <a class="backnav-pill " href="rag-chat-diagram.html">RAG Chat</a>
+  </div>
+</nav>
+<div class="wrap">
+
+<!-- Header -->
+<div class="header">
+  <div class="eyebrow">
+    <span class="badge bq">Social Scheduler</span>
+    <span class="badge bm">Image / Video</span>
+    <span class="badge bm">MERN · Production</span>
+  </div>
+  <h1>Schedule Posts to<br><span class="g1">Social Media</span></h1>
+  <p>Upload once, post everywhere. Image/video scheduling with a job queue, 15-minute minimum window, real-time frontend notifications on success or rejection.</p>
+  <div class="platforms">
+    <span class="plat p-ig">📸 Instagram</span>
+    <span class="plat p-fb">📘 Facebook</span>
+    <span class="plat p-tw">🐦 X / Twitter</span>
+    <span class="plat p-li">💼 LinkedIn</span>
+    <span class="plat p-yt">▶️ YouTube</span>
+    <span class="plat p-tk">🎵 TikTok</span>
+  </div>
+</div>
+
+<!-- Tabs -->
+<div class="tabs">
+  <button class="tab active" onclick="go('architecture')">Architecture</button>
+  <button class="tab" onclick="go('upload')">Upload Flow</button>
+  <button class="tab" onclick="go('queue')">Job Queue</button>
+  <button class="tab" onclick="go('ffmpeg')">FFmpeg Transcoding</button>
+  <button class="tab" onclick="go('platforms')">Platform APIs</button>
+  <button class="tab" onclick="go('schema')">DB Schema</button>
+  <button class="tab" onclick="go('notifications')">Notifications</button>
+  <button class="tab" onclick="go('frontend')">Frontend</button>
+  <button class="tab" onclick="go('scale')">Scale</button>
+</div>
+
+
+<!-- ═══════ ARCHITECTURE ═══════ -->
+<div class="panel active" id="tab-architecture">
+<div class="sl">System Architecture Overview</div>
+
+<div class="note ni"><strong>Core principle:</strong> Never post to social media directly from the HTTP request. Always schedule via a job queue (BullMQ). The queue worker fires at the scheduled time, posts to the platform API, and emits a WebSocket event back to the frontend with the result.</div>
+
+<!-- Main flow -->
+<div class="card" style="padding:24px;margin-bottom:16px;overflow-x:auto;">
+  <div style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--mu);margin-bottom:20px;font-family:'IBM Plex Mono',monospace;">End-to-End Flow</div>
+  <div class="fflow" style="min-width:900px;">
+    <div class="ffs">
+      <div class="ffb" style="border-color:rgba(129,140,248,.3)">
+        <div class="ffi">🖥</div>
+        <div class="fft" style="color:#818cf8">React Frontend</div>
+        <div class="ffd">Upload media, set caption, pick platforms + schedule time</div>
+      </div>
+    </div>
+    <div class="ffa">→</div>
+    <div class="ffs">
+      <div class="ffb" style="border-color:rgba(192,132,252,.3)">
+        <div class="ffi">☁️</div>
+        <div class="fft" style="color:#c084fc">S3 / Cloudinary</div>
+        <div class="ffd">Media uploaded directly. URL returned to backend.</div>
+      </div>
+    </div>
+    <div class="ffa">→</div>
+    <div class="ffs">
+      <div class="ffb" style="border-color:rgba(251,191,36,.3)">
+        <div class="ffi">📋</div>
+        <div class="fft" style="color:#fbbf24">Express Backend</div>
+        <div class="ffd">Validate 15-min rule. Save to MongoDB. Enqueue job.</div>
+      </div>
+    </div>
+    <div class="ffa">→</div>
+    <div class="ffs">
+      <div class="ffb" style="border-color:rgba(249,115,22,.3)">
+        <div class="ffi">🎬</div>
+        <div class="fft" style="color:#fb923c">FFmpeg Worker</div>
+        <div class="ffd">Probe video specs. Transcode if codec/resolution/size fails platform rules.</div>
+      </div>
+    </div>
+    <div class="ffa">→</div>
+    <div class="ffs">
+      <div class="ffb" style="border-color:rgba(6,182,212,.3)">
+        <div class="ffi">⚙️</div>
+        <div class="fft" style="color:#06b6d4">BullMQ + Redis</div>
+        <div class="ffd">Job stored with delay. Worker fires at exact scheduled time.</div>
+      </div>
+    </div>
+    <div class="ffa">→</div>
+    <div class="ffs">
+      <div class="ffb" style="border-color:rgba(225,48,108,.3)">
+        <div class="ffi">📡</div>
+        <div class="fft" style="color:var(--ig)">Platform APIs</div>
+        <div class="ffd">Worker POSTs transcoded media to each selected platform.</div>
+      </div>
+    </div>
+    <div class="ffa">→</div>
+    <div class="ffs">
+      <div class="ffb" style="border-color:rgba(16,185,129,.3)">
+        <div class="ffi">🔔</div>
+        <div class="fft" style="color:#10b981">WebSocket</div>
+        <div class="ffd">Success/failure notification pushed to frontend in real-time.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="g3">
+  <div class="card">
+    <div class="ct"><span class="cd" style="background:var(--q1)"></span>Upload Layer</div>
+    <div class="ir"><span class="ik">Media storage</span><span class="iv">S3 or Cloudinary</span></div>
+    <div class="ir"><span class="ik">Upload method</span><span class="iv">Presigned URL (S3) or direct upload</span></div>
+    <div class="ir"><span class="ik">Image formats</span><span class="iv">JPG, PNG, WebP, GIF</span></div>
+    <div class="ir"><span class="ik">Video formats</span><span class="iv">MP4, MOV, AVI</span></div>
+    <div class="ir"><span class="ik">Max size</span><span class="iv">Platform-specific (see Platform tab)</span></div>
+    <div class="ir"><span class="ik">Validation</span><span class="iv">Format + size + duration on upload</span></div>
+  </div>
+  <div class="card">
+    <div class="ct"><span class="cd" style="background:var(--bull)"></span>Queue Layer</div>
+    <div class="ir"><span class="ik">Queue engine</span><span class="iv">BullMQ + Redis</span></div>
+    <div class="ir"><span class="ik">Job type</span><span class="iv">Delayed job (fires at scheduledAt)</span></div>
+    <div class="ir"><span class="ik">Min advance</span><span class="iv"><span class="pill pa">15 minutes — enforced in backend</span></span></div>
+    <div class="ir"><span class="ik">Retry on fail</span><span class="iv">3 attempts, exponential backoff</span></div>
+    <div class="ir"><span class="ik">Per platform</span><span class="iv">One job per platform per post</span></div>
+    <div class="ir"><span class="ik">Worker</span><span class="iv">Separate Node.js process</span></div>
+  </div>
+  <div class="card">
+    <div class="ct"><span class="cd" style="background:var(--ws)"></span>Notification Layer</div>
+    <div class="ir"><span class="ik">Protocol</span><span class="iv">WebSocket via socket.io</span></div>
+    <div class="ir"><span class="ik">Room</span><span class="iv">Per-user room (userId)</span></div>
+    <div class="ir"><span class="ik">Events</span><span class="iv">post:success, post:failed, post:processing</span></div>
+    <div class="ir"><span class="ik">Fallback</span><span class="iv">Polling /api/posts/:id/status</span></div>
+    <div class="ir"><span class="ik">Frontend</span><span class="iv">Toast notification with platform name</span></div>
+    <div class="ir"><span class="ik">Persistence</span><span class="iv">Notification stored in DB too</span></div>
+  </div>
+</div>
+
+<div class="sl">Key Design Decisions</div>
+<div class="g2">
+  <div class="card">
+    <div class="ct"><span class="cd" style="background:var(--ok)"></span>One Job Per Platform</div>
+    <div style="font-size:12px;color:var(--mu);line-height:1.8;padding-top:4px;">
+      Don't batch all platforms into one job. Create <strong style="color:var(--tx)">separate BullMQ jobs</strong> per platform per post.<br><br>
+      This way: if Instagram fails, Twitter still succeeds. Each platform has its own retry count, status, and error message. Users get per-platform notifications.
+    </div>
+    <div style="margin-top:12px"><span class="pill pg">Independent failure isolation</span></div>
+  </div>
+  <div class="card">
+    <div class="ct"><span class="cd" style="background:var(--warn)"></span>15-Minute Rule</div>
+    <div style="font-size:12px;color:var(--mu);line-height:1.8;padding-top:4px;">
+      Enforced at two levels:<br>
+      1. <strong style="color:var(--tx)">Backend validation</strong> — reject if scheduledAt &lt; now + 15 min<br>
+      2. <strong style="color:var(--tx)">Frontend validation</strong> — disable times in the past + next 15 min in datetime picker<br><br>
+      Return clear error: "Schedule time must be at least 15 minutes from now."
+    </div>
+    <div style="margin-top:12px"><span class="pill pa">Both FE + BE enforced</span></div>
+  </div>
+  <div class="card">
+    <div class="ct"><span class="cd" style="background:#fb923c"></span>FFmpeg Transcoding</div>
+    <div style="font-size:12px;color:var(--mu);line-height:1.8;padding-top:4px;">
+      Each platform has different codec, resolution, aspect ratio, bitrate, and size requirements. <strong style="color:var(--tx)">FFmpeg runs inside the BullMQ worker</strong> before the platform API call.<br><br>
+      Probe the original file first with <code style="font-size:11px;background:var(--s2);padding:1px 5px;border-radius:3px;color:#67e8f9;font-family:'IBM Plex Mono',monospace;">ffprobe</code>. Only transcode what doesn't meet spec — avoid unnecessary re-encoding.
+    </div>
+    <div style="margin-top:12px"><span class="pill pc">fluent-ffmpeg npm package</span></div>
+  </div>
+</div>
+</div>
+
+
+<!-- ═══════ UPLOAD FLOW ═══════ -->
+<div class="panel" id="tab-upload">
+<div class="sl">Upload Flow — Step by Step</div>
+<div class="note nw"><strong>Use presigned URLs</strong> (S3) or direct upload to Cloudinary instead of sending files through your Express server. This saves bandwidth, reduces server load, and is far more scalable.</div>
+
+<div class="tl">
+  <div class="tli si">
+    <div class="tlt">1 · User fills the scheduling form <span class="pill pb">Frontend</span></div>
+    <div class="tld">Select media files (image/video). Enter caption/description. Choose which platforms (checkboxes: IG, FB, Twitter, etc). Pick scheduled date + time. Frontend validates: time must be &gt;= now + 15 min (disable earlier times in picker). Preview thumbnail shown for video.</div>
+  </div>
+  <div class="tli si">
+    <div class="tlt">2 · Request presigned URL <span class="pill pb">FE → BE</span></div>
+    <div class="tld">POST /api/media/presign with { filename, mimeType, fileSize }. Backend validates file type and size before issuing presigned URL. Returns: { uploadUrl, fileKey, publicUrl } from S3 / Cloudinary.</div>
+  </div>
+  <div class="tli si">
+    <div class="tlt">3 · Upload directly to storage <span class="pill pc">FE → S3/Cloudinary</span></div>
+    <div class="tld">React PUTs the file directly to the presigned URL with a progress callback (onUploadProgress for axios). Show upload progress bar. File never touches your Express server.</div>
+  </div>
+  <div class="tli so">
+    <div class="tlt">4 · Create scheduled post <span class="pill pb">FE → BE</span></div>
+    <div class="tld">POST /api/posts/schedule with { mediaUrl, fileKey, caption, platforms: ['instagram','twitter'], scheduledAt: ISO_DATE }. Backend re-validates 15-min rule. Creates Post document. Creates per-platform PostJob documents. Enqueues BullMQ jobs with delay = scheduledAt - now.</div>
+  </div>
+  <div class="tli sw">
+    <div class="tlt">5 · Validation failures <span class="pill pr">Error Cases</span></div>
+    <div class="tld">If scheduledAt &lt; now + 15 min → 400 "Must schedule at least 15 minutes ahead". If unsupported format → 400 "MP4 and MOV only for TikTok". If file too large → 400 "Instagram video max 100MB". Frontend shows toast notification for each error type.</div>
+  </div>
+  <div class="tli so">
+    <div class="tlt">6 · Job enqueued confirmation <span class="pill pg">Success</span></div>
+    <div class="tld">Backend returns 201 with the created post object including per-platform job IDs. Frontend shows success toast: "Post scheduled for [date/time] to [platforms]". Post appears in dashboard with "Scheduled" status badge.</div>
+  </div>
+</div>
+
+<div class="sl">Backend — Schedule Endpoint</div>
+<div class="cb">
+  <div class="ch"><span class="d8" style="background:var(--warn)"></span> POST /api/posts/schedule</div>
+  <pre><span class="kw">const</span> <span class="fn">schedulePost</span> = <span class="kw">async</span> (req, res) => {
+  <span class="kw">const</span> { mediaUrl, fileKey, caption, platforms, scheduledAt, mediaType } = req.body;
+  <span class="kw">const</span> userId = req.user.userId;
+
+  <span class="cm">// ── 1. Validate 15-minute minimum ──────────────────────────</span>
+  <span class="kw">const</span> MIN_ADVANCE_MS = <span class="num">15</span> * <span class="num">60</span> * <span class="num">1000</span>;
+  <span class="kw">const</span> scheduledDate = <span class="kw">new</span> <span class="obj">Date</span>(scheduledAt);
+  <span class="kw">if</span> (scheduledDate - <span class="obj">Date</span>.<span class="fn">now</span>() &lt; MIN_ADVANCE_MS)
+    <span class="kw">return</span> res.<span class="fn">status</span>(<span class="num">400</span>).<span class="fn">json</span>({ error: <span class="str">'Must schedule at least 15 minutes ahead'</span> });
+
+  <span class="cm">// ── 2. Validate per-platform constraints ───────────────────</span>
+  <span class="kw">for</span> (<span class="kw">const</span> platform <span class="kw">of</span> platforms) {
+    <span class="kw">const</span> err = <span class="fn">validateForPlatform</span>(platform, mediaType, req.body.fileSizeMB, req.body.durationSec);
+    <span class="kw">if</span> (err) <span class="kw">return</span> res.<span class="fn">status</span>(<span class="num">400</span>).<span class="fn">json</span>({ error: err, platform });
+  }
+
+  <span class="cm">// ── 3. Save Post to MongoDB ────────────────────────────────</span>
+  <span class="kw">const</span> post = <span class="kw">await</span> Post.<span class="fn">create</span>({
+    userId, mediaUrl, fileKey, caption, mediaType,
+    platforms, scheduledAt: scheduledDate,
+    status: <span class="str">'scheduled'</span>
+  });
+
+  <span class="cm">// ── 4. Create one BullMQ job per platform ─────────────────</span>
+  <span class="kw">const</span> delay = scheduledDate - <span class="obj">Date</span>.<span class="fn">now</span>();
+  <span class="kw">const</span> jobs = <span class="kw">await</span> Promise.<span class="fn">all</span>(platforms.<span class="fn">map</span>(platform =>
+    postQueue.<span class="fn">add</span>(<span class="str">`post:${platform}`</span>, { postId: post._id, platform, userId },
+      { delay,
+        attempts: <span class="num">3</span>,
+        backoff: { type: <span class="str">'exponential'</span>, delay: <span class="num">5000</span> },
+        jobId: <span class="str">`post_${post._id}_${platform}`</span>,  <span class="cm">// idempotent — safe to re-enqueue</span>
+        removeOnComplete: { count: <span class="num">100</span> },  <span class="cm">// keep last 100 completed jobs in Redis</span>
+        removeOnFail:     { count: <span class="num">50</span>  }   <span class="cm">// keep last 50 failed for debugging</span>
+      }
+    )
+  ));
+
+  <span class="cm">// ── 5. Save job IDs to post document ──────────────────────</span>
+  post.platformJobs = platforms.<span class="fn">map</span>((p, i) => ({
+    platform: p, jobId: jobs[i].id, status: <span class="str">'pending'</span>
+  }));
+  <span class="kw">await</span> post.<span class="fn">save</span>();
+
+  res.<span class="fn">status</span>(<span class="num">201</span>).<span class="fn">json</span>({ success: <span class="kw">true</span>, post });
+};</pre>
+</div>
+</div>
+
+
+<!-- ═══════ JOB QUEUE ═══════ -->
+<div class="panel" id="tab-queue">
+<div class="sl">BullMQ Job Queue — Worker Design</div>
+<div class="note ni"><strong>BullMQ</strong> is built on Redis. A "delayed job" stores the job in Redis and fires it after a delay. Your worker process runs 24/7, picks up jobs when they become ready, and executes the platform API calls.</div>
+
+<div class="g2">
+  <div class="card">
+    <div class="ct"><span class="cd" style="background:var(--bull)"></span>Queue Setup</div>
+    <div class="ir"><span class="ik">Library</span><span class="iv">bullmq + ioredis</span></div>
+    <div class="ir"><span class="ik">Queue name</span><span class="iv">social-posts</span></div>
+    <div class="ir"><span class="ik">Job delay</span><span class="iv">scheduledAt - Date.now() (ms)</span></div>
+    <div class="ir"><span class="ik">Retries</span><span class="iv">3 attempts, exponential backoff</span></div>
+    <div class="ir"><span class="ik">Concurrency</span><span class="iv">5 jobs at a time per worker</span></div>
+    <div class="ir"><span class="ik">Worker process</span><span class="iv">Separate process / PM2 cluster</span></div>
+    <div class="ir"><span class="ik">Job TTL</span><span class="iv">Keep 100 completed, 50 failed jobs in Redis</span></div>
+  </div>
+  <div class="card">
+    <div class="ct"><span class="cd" style="background:var(--warn)"></span>Job States</div>
+    <div class="ir"><span class="ik" style="color:#818cf8">waiting</span><span class="iv">In Redis, delay not elapsed yet</span></div>
+    <div class="ir"><span class="ik" style="color:#fbbf24">delayed</span><span class="iv">Scheduled — waiting for fire time</span></div>
+    <div class="ir"><span class="ik" style="color:#67e8f9">active</span><span class="iv">Worker currently executing</span></div>
+    <div class="ir"><span class="ik" style="color:#4ade80">completed</span><span class="iv">Platform API responded 200</span></div>
+    <div class="ir"><span class="ik" style="color:#f87171">failed</span><span class="iv">All retries exhausted</span></div>
+    <div class="ir"><span class="ik" style="color:#c084fc">stalled</span><span class="iv">Worker died mid-job — auto-retried</span></div>
+  </div>
+</div>
+
+<div class="cb">
+  <div class="ch"><span class="d8" style="background:var(--bull)"></span> workers/postWorker.js — the core worker</div>
+  <pre><span class="kw">import</span> { Worker } <span class="kw">from</span> <span class="str">'bullmq'</span>;
+<span class="kw">import</span> { redisConnection } <span class="kw">from</span> <span class="str">'../config/redis.js'</span>;
+<span class="kw">import</span> { Post } <span class="kw">from</span> <span class="str">'../models/Post.js'</span>;
+<span class="kw">import</span> { SocialAccount } <span class="kw">from</span> <span class="str">'../models/SocialAccount.js'</span>;
+<span class="kw">import</span> { postToInstagram, postToTwitter, postToFacebook,
+          postToLinkedIn, postToYouTube, postToTikTok } <span class="kw">from</span> <span class="str">'./platformAdapters.js'</span>;
+
+<span class="cm">// io is the socket.io Server instance — pass it in when starting the worker</span>
+<span class="cm">// In server.js: startWorker(io)  — worker receives io via closure, not via global</span>
+<span class="kw">export function</span> <span class="fn">startWorker</span>(io) {
+<span class="kw">const</span> PLATFORM_HANDLERS = {
+  instagram: postToInstagram, twitter: postToTwitter,
+  facebook:  postToFacebook,  linkedin: postToLinkedIn,
+  youtube:   postToYouTube,   tiktok: postToTikTok,
+};
+
+<span class="kw">const</span> worker = <span class="kw">new</span> <span class="fn">Worker</span>(<span class="str">'social-posts'</span>, <span class="kw">async</span> (job) => {
+  <span class="kw">const</span> { postId, platform, userId } = job.data;
+
+  <span class="cm">// 1. Load post from DB (get fresh mediaUrl, caption)</span>
+  <span class="kw">const</span> post = <span class="kw">await</span> Post.<span class="fn">findById</span>(postId);
+  <span class="kw">if</span> (!post) <span class="kw">throw new</span> <span class="obj">Error</span>(<span class="str">`Post ${postId} not found`</span>);
+  <span class="kw">if</span> (post.status === <span class="str">'cancelled'</span>) <span class="kw">return</span>;  <span class="cm">// user cancelled — skip silently</span>
+
+  <span class="cm">// 2. Load platform credentials for this user</span>
+  <span class="kw">const</span> creds = <span class="kw">await</span> SocialAccount.<span class="fn">findOne</span>({ userId, platform });
+  <span class="kw">if</span> (!creds) <span class="kw">throw new</span> <span class="obj">Error</span>(<span class="str">`No ${platform} account connected`</span>);
+
+  <span class="cm">// 3. Update job status → processing</span>
+  <span class="kw">await</span> post.<span class="fn">updatePlatformStatus</span>(platform, <span class="str">'processing'</span>);
+  io.<span class="fn">to</span>(userId.<span class="fn">toString</span>()).<span class="fn">emit</span>(<span class="str">'post:processing'</span>, { postId, platform });
+
+  <span class="cm">// 4. Call the platform-specific adapter</span>
+  <span class="kw">const</span> handler = PLATFORM_HANDLERS[platform];
+  <span class="kw">const</span> result = <span class="kw">await</span> handler({ post, creds });
+
+  <span class="cm">// 5. Update status → published</span>
+  <span class="kw">await</span> post.<span class="fn">updatePlatformStatus</span>(platform, <span class="str">'published'</span>, {
+    platformPostId: result.id,
+    platformUrl:    result.url
+  });
+
+  <span class="cm">// 6. Emit success notification via WebSocket</span>
+  io.<span class="fn">to</span>(userId.<span class="fn">toString</span>()).<span class="fn">emit</span>(<span class="str">'post:success'</span>, {
+    postId, platform,
+    message: <span class="str">`Posted to ${platform} successfully`</span>,
+    url: result.url
+  });
+
+}, { connection: redisConnection, concurrency: <span class="num">5</span> });
+
+<span class="cm">// Handle failed jobs (all retries exhausted)</span>
+worker.<span class="fn">on</span>(<span class="str">'failed'</span>, <span class="kw">async</span> (job, err) => {
+  <span class="kw">const</span> { postId, platform, userId } = job.data;
+  <span class="kw">await</span> Post.<span class="fn">findOneAndUpdate</span>(
+    { _id: postId, <span class="str">'platformJobs.platform'</span>: platform },
+    { <span class="str">'$set'</span>: {
+        <span class="str">'platformJobs.$.status'</span>: <span class="str">'failed'</span>,
+        <span class="str">'platformJobs.$.error'</span>:  err.message,
+        <span class="str">'platformJobs.$.attempts'</span>: job.attemptsMade
+    } }
+  );  <span class="cm">// positional $ operator targets the matching platformJobs array element</span>
+  io.<span class="fn">to</span>(userId.<span class="fn">toString</span>()).<span class="fn">emit</span>(<span class="str">'post:failed'</span>, {
+    postId, platform,
+    error: err.message
+  });
+});
+
+  <span class="kw">return</span> worker;
+} <span class="cm">// end startWorker(io)</span>
+
+<span class="cm">// server.js: import { startWorker } from './workers/postWorker.js';</span>
+<span class="cm">// const io = new Server(httpServer, ...)</span>
+<span class="cm">// startWorker(io);  ← pass the io instance in</span></pre>
+</div>
+
+<div class="cb">
+  <div class="ch"><span class="d8" style="background:var(--err)"></span> Cancelling a scheduled post</div>
+  <pre><span class="cm">// DELETE /api/posts/:id — cancels all pending jobs for this post</span>
+<span class="kw">const</span> <span class="fn">cancelPost</span> = <span class="kw">async</span> (req, res) => {
+  <span class="kw">const</span> post = <span class="kw">await</span> Post.<span class="fn">findById</span>(req.params.id);
+
+  <span class="cm">// Can only cancel if still in scheduled state</span>
+  <span class="kw">if</span> (post.status !== <span class="str">'scheduled'</span>)
+    <span class="kw">return</span> res.<span class="fn">status</span>(<span class="num">400</span>).<span class="fn">json</span>({ error: <span class="str">'Post already published or failed'</span> });
+
+  <span class="cm">// Remove all pending BullMQ jobs</span>
+  <span class="kw">for</span> (<span class="kw">const</span> { jobId } <span class="kw">of</span> post.platformJobs) {
+    <span class="kw">const</span> job = <span class="kw">await</span> postQueue.<span class="fn">getJob</span>(jobId);
+    <span class="kw">if</span> (job) <span class="kw">await</span> job.<span class="fn">remove</span>();
+  }
+
+  post.status = <span class="str">'cancelled'</span>;
+  <span class="kw">await</span> post.<span class="fn">save</span>();
+  res.<span class="fn">json</span>({ success: <span class="kw">true</span> });
+};</pre>
+</div>
+</div>
+
+
+<!-- ═══════ FFMPEG TRANSCODING ═══════ -->
+<div class="panel" id="tab-ffmpeg">
+<div class="sl">Why FFmpeg is Required</div>
+
+<div class="note nw"><strong>Each platform rejects videos that don't match its exact specs.</strong> A user might upload a 4K ProRes .mov shot on an iPhone — perfectly valid — but Instagram requires H.264 MP4, TikTok needs 9:16 aspect ratio, and Twitter has a 512MB cap. FFmpeg probes the file and re-encodes only what fails spec. Running <strong>inside the BullMQ worker</strong>, before the platform API call.</div>
+
+<div class="sl">Per-Platform Video Requirements</div>
+<div class="card" style="margin-bottom:16px;overflow-x:auto;">
+  <table class="ctbl">
+    <thead><tr>
+      <th>Platform</th><th>Container</th><th>Video Codec</th><th>Audio Codec</th>
+      <th>Max Resolution</th><th>Aspect Ratio</th><th>Max Bitrate</th><th>Max Size</th>
+    </tr></thead>
+    <tbody>
+      <tr>
+        <td style="color:var(--ig);font-weight:700">Instagram</td>
+        <td>MP4</td><td>H.264 (baseline/main)</td><td>AAC, 48kHz</td>
+        <td>1920×1080</td><td>4:5 to 16:9</td><td>3.5 Mbps</td><td>100MB (post), 1GB (reel)</td>
+      </tr>
+      <tr>
+        <td style="color:var(--fb);font-weight:700">Facebook</td>
+        <td>MP4 / MOV</td><td>H.264</td><td>AAC stereo</td>
+        <td>1920×1080 recommended</td><td>9:16 to 16:9</td><td>4 Mbps</td><td>10GB</td>
+      </tr>
+      <tr>
+        <td style="color:var(--tw);font-weight:700">Twitter / X</td>
+        <td>MP4 / MOV</td><td>H.264 (high profile)</td><td>AAC, ≤128kbps</td>
+        <td>1920×1200 / 1200×1900</td><td>Any (cropped in feed)</td><td>25 Mbps</td><td>512MB</td>
+      </tr>
+      <tr>
+        <td style="color:var(--li);font-weight:700">LinkedIn</td>
+        <td>MP4</td><td>H.264</td><td>AAC</td>
+        <td>4096×2304</td><td>1:2.4 to 2.4:1</td><td>30 Mbps</td><td>5GB</td>
+      </tr>
+      <tr>
+        <td style="color:var(--yt);font-weight:700">YouTube</td>
+        <td>MP4 / MOV / AVI</td><td>H.264 or H.265</td><td>AAC or MP3</td>
+        <td>3840×2160 (4K)</td><td>16:9 preferred</td><td>80 Mbps</td><td>256GB</td>
+      </tr>
+      <tr>
+        <td style="color:var(--tk);font-weight:700">TikTok</td>
+        <td>MP4 / WebM</td><td>H.264 or H.265</td><td>AAC</td>
+        <td>1080×1920 (9:16)</td><td><span class="pill pr">9:16 required</span></td><td>10 Mbps</td><td>4GB</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="sl">Transcoding Decision Logic</div>
+<div class="g2">
+  <div class="card">
+    <div class="ct"><span class="cd" style="background:#fb923c"></span>Step 1 · Probe with ffprobe</div>
+    <div style="font-size:12px;color:var(--mu);line-height:1.8;padding-top:4px;">
+      Before transcoding, call <code style="font-size:11px;background:var(--s2);padding:1px 5px;border-radius:3px;color:#67e8f9;font-family:'IBM Plex Mono',monospace;">ffprobe</code> to read the source file's actual specs:<br>
+      container format, video codec, audio codec, resolution, frame rate, bitrate, duration, aspect ratio.<br><br>
+      <strong style="color:var(--tx)">Only transcode if a spec fails.</strong> If the file already meets all requirements for a given platform — skip FFmpeg entirely. Transcoding is expensive; don't do it unnecessarily.
+    </div>
+  </div>
+  <div class="card">
+    <div class="ct"><span class="cd" style="background:#fb923c"></span>Step 2 · Transcode if needed</div>
+    <div style="font-size:12px;color:var(--mu);line-height:1.8;padding-top:4px;">
+      Checks that trigger FFmpeg:<br>
+      • Codec not H.264 (e.g. HEVC/H.265, VP9, AV1, ProRes)<br>
+      • Container not MP4 (e.g. .mov, .avi, .mkv, .webm)<br>
+      • Audio codec not AAC (e.g. MP3, PCM, Opus)<br>
+      • Resolution exceeds platform max<br>
+      • Aspect ratio outside allowed range<br>
+      • File size exceeds limit (re-encode at lower bitrate)<br>
+      • Frame rate above platform max (some require ≤30fps)
+    </div>
+  </div>
+</div>
+
+<div class="cb">
+  <div class="ch"><span class="d8" style="background:#fb923c"></span> services/transcode.js — probe + transcode pipeline</div>
+  <pre><span class="kw">import</span> ffmpeg <span class="kw">from</span> <span class="str">'fluent-ffmpeg'</span>;
+<span class="kw">import</span> ffmpegPath <span class="kw">from</span> <span class="str">'ffmpeg-static'</span>;   <span class="cm">// ships bundled ffmpeg binary — no system install needed</span>
+<span class="kw">import</span> ffprobePath <span class="kw">from</span> <span class="str">'ffprobe-static'</span>;  <span class="cm">// bundled ffprobe binary</span>
+<span class="kw">import</span> path <span class="kw">from</span> <span class="str">'path'</span>;
+<span class="kw">import</span> fs <span class="kw">from</span> <span class="str">'fs/promises'</span>;
+<span class="kw">import</span> os <span class="kw">from</span> <span class="str">'os'</span>;
+
+ffmpeg.<span class="fn">setFfmpegPath</span>(ffmpegPath);
+ffmpeg.<span class="fn">setFfprobePath</span>(ffprobePath);
+
+<span class="cm">// Per-platform transcode profiles</span>
+<span class="kw">const</span> PLATFORM_PROFILES = {
+  instagram: { codec: <span class="str">'libx264'</span>, audioCodec: <span class="str">'aac'</span>, audioFreq: <span class="num">48000</span>,
+               maxWidth: <span class="num">1920</span>, maxHeight: <span class="num">1080</span>, maxBitrate: <span class="str">'3500k'</span>, crf: <span class="num">23</span>,
+               pixFmt: <span class="str">'yuv420p'</span>, preset: <span class="str">'fast'</span>, maxFps: <span class="num">30</span> },
+  facebook:  { codec: <span class="str">'libx264'</span>, audioCodec: <span class="str">'aac'</span>, audioFreq: <span class="num">44100</span>,
+               maxWidth: <span class="num">1920</span>, maxHeight: <span class="num">1080</span>, maxBitrate: <span class="str">'4000k'</span>, crf: <span class="num">23</span>,
+               pixFmt: <span class="str">'yuv420p'</span>, preset: <span class="str">'fast'</span>, maxFps: <span class="num">60</span> },
+  twitter:   { codec: <span class="str">'libx264'</span>, audioCodec: <span class="str">'aac'</span>, audioFreq: <span class="num">44100</span>,
+               maxWidth: <span class="num">1920</span>, maxHeight: <span class="num">1200</span>, maxBitrate: <span class="str">'25000k'</span>, crf: <span class="num">20</span>,
+               pixFmt: <span class="str">'yuv420p'</span>, preset: <span class="str">'fast'</span>, maxFps: <span class="num">60</span> },
+  linkedin:  { codec: <span class="str">'libx264'</span>, audioCodec: <span class="str">'aac'</span>, audioFreq: <span class="num">44100</span>,
+               maxWidth: <span class="num">4096</span>, maxHeight: <span class="num">2304</span>, maxBitrate: <span class="str">'30000k'</span>, crf: <span class="num">20</span>,
+               pixFmt: <span class="str">'yuv420p'</span>, preset: <span class="str">'medium'</span>, maxFps: <span class="num">60</span> },
+  youtube:   { codec: <span class="str">'libx264'</span>, audioCodec: <span class="str">'aac'</span>, audioFreq: <span class="num">44100</span>,
+               maxWidth: <span class="num">3840</span>, maxHeight: <span class="num">2160</span>, maxBitrate: <span class="str">'80000k'</span>, crf: <span class="num">18</span>,
+               pixFmt: <span class="str">'yuv420p'</span>, preset: <span class="str">'medium'</span>, maxFps: <span class="num">60</span> },
+  tiktok:    { codec: <span class="str">'libx264'</span>, audioCodec: <span class="str">'aac'</span>, audioFreq: <span class="num">44100</span>,
+               maxWidth: <span class="num">1080</span>, maxHeight: <span class="num">1920</span>, maxBitrate: <span class="str">'10000k'</span>, crf: <span class="num">23</span>,
+               pixFmt: <span class="str">'yuv420p'</span>, preset: <span class="str">'fast'</span>, maxFps: <span class="num">30</span>,
+               forceAspect: <span class="str">'9:16'</span> }  <span class="cm">// TikTok mandates 9:16</span>
+};
+
+<span class="cm">// Step 1: Probe the source file — get real specs</span>
+<span class="kw">export function</span> <span class="fn">probeVideo</span>(filePath) {
+  <span class="kw">return new</span> <span class="obj">Promise</span>((resolve, reject) => {
+    ffmpeg.<span class="fn">ffprobe</span>(filePath, (err, metadata) => {
+      <span class="kw">if</span> (err) <span class="kw">return</span> <span class="fn">reject</span>(err);
+      <span class="kw">const</span> vs = metadata.streams.<span class="fn">find</span>(s => s.codec_type === <span class="str">'video'</span>);
+      <span class="kw">const</span> as = metadata.streams.<span class="fn">find</span>(s => s.codec_type === <span class="str">'audio'</span>);
+      <span class="fn">resolve</span>({
+        format:      metadata.format.format_name,     <span class="cm">// 'mov,mp4,m4a...' | 'matroska'</span>
+        videoCodec:  vs?.codec_name,                  <span class="cm">// 'h264' | 'hevc' | 'vp9' | 'av1' | 'prores'</span>
+        audioCodec:  as?.codec_name,                  <span class="cm">// 'aac' | 'mp3' | 'opus' | 'pcm_s16le'</span>
+        width:       vs?.width,
+        height:      vs?.height,
+        fps:         <span class="fn">eval</span>(vs?.r_frame_rate),           <span class="cm">// e.g. '30/1' → 30</span>
+        bitrate:     <span class="fn">parseInt</span>(metadata.format.bit_rate),
+        durationSec: <span class="fn">parseFloat</span>(metadata.format.duration),
+        sizeMB:      metadata.format.size / (<span class="num">1024</span> * <span class="num">1024</span>),
+        audioFreq:   as?.sample_rate,
+        audioChannels: as?.channels
+      });
+    });
+  });
+}
+
+<span class="cm">// Step 2: Check if transcoding is needed for a given platform</span>
+<span class="kw">export function</span> <span class="fn">needsTranscode</span>(probe, platform) {
+  <span class="kw">const</span> p = PLATFORM_PROFILES[platform];
+  <span class="kw">if</span> (!p) <span class="kw">return false</span>;
+
+  <span class="kw">if</span> (probe.videoCodec !== <span class="str">'h264'</span>)              <span class="kw">return true</span>;
+  <span class="kw">if</span> (probe.audioCodec !== <span class="str">'aac'</span>)               <span class="kw">return true</span>;
+  <span class="kw">if</span> (!probe.format.includes(<span class="str">'mp4'</span>))             <span class="kw">return true</span>;
+  <span class="kw">if</span> (probe.width  > p.maxWidth)                 <span class="kw">return true</span>;
+  <span class="kw">if</span> (probe.height > p.maxHeight)                <span class="kw">return true</span>;
+  <span class="kw">if</span> (probe.fps    > p.maxFps)                   <span class="kw">return true</span>;
+  <span class="kw">if</span> (probe.audioFreq && probe.audioFreq !== p.audioFreq) <span class="kw">return true</span>;
+  <span class="kw">if</span> (p.forceAspect) {                           <span class="cm">// TikTok: force 9:16</span>
+    <span class="kw">const</span> ratio = probe.width / probe.height;
+    <span class="kw">if</span> (Math.<span class="fn">abs</span>(ratio - <span class="num">9</span> / <span class="num">16</span>) > <span class="num">0.02</span>)         <span class="kw">return true</span>;
+  }
+  <span class="kw">return false</span>;
+}
+
+<span class="cm">// Step 3: Transcode — returns path to new temp file</span>
+<span class="kw">export function</span> <span class="fn">transcodeVideo</span>(inputPath, platform) {
+  <span class="kw">const</span> p       = PLATFORM_PROFILES[platform];
+  <span class="kw">const</span> outPath = path.<span class="fn">join</span>(os.<span class="fn">tmpdir</span>(), <span class="str">`transcoded_${platform}_${Date.now()}.mp4`</span>);
+
+  <span class="kw">return new</span> <span class="obj">Promise</span>((resolve, reject) => {
+    <span class="kw">let</span> cmd = ffmpeg(inputPath)
+      .<span class="fn">videoCodec</span>(p.codec)
+      .<span class="fn">audioCodec</span>(p.audioCodec)
+      .<span class="fn">audioFrequency</span>(p.audioFreq)
+      .<span class="fn">outputOption</span>(<span class="str">'-crf'</span>, p.crf)           <span class="cm">// quality-based encoding</span>
+      .<span class="fn">outputOption</span>(<span class="str">'-preset'</span>, p.preset)
+      .<span class="fn">outputOption</span>(<span class="str">'-pix_fmt'</span>, p.pixFmt)    <span class="cm">// yuv420p required for browser/platform compat</span>
+      .<span class="fn">outputOption</span>(<span class="str">'-movflags'</span>, <span class="str">'+faststart'</span>) <span class="cm">// move moov atom to start for streaming</span>
+      .<span class="fn">videoBitrate</span>(p.maxBitrate)
+      .<span class="fn">fps</span>(p.maxFps);
+
+    <span class="cm">// Scale down if exceeds max resolution, maintaining aspect ratio</span>
+    cmd = cmd.<span class="fn">outputOption</span>(<span class="str">`-vf`</span>,
+      <span class="str">`scale='min(${p.maxWidth},iw)':'min(${p.maxHeight},ih)':force_original_aspect_ratio=decrease,pad=${p.maxWidth}:${p.maxHeight}:(ow-iw)/2:(oh-ih)/2:black`</span>
+    );
+
+    <span class="cm">// TikTok: force 9:16 crop if landscape video submitted</span>
+    <span class="kw">if</span> (p.forceAspect === <span class="str">'9:16'</span>) {
+      cmd = cmd.<span class="fn">outputOption</span>(<span class="str">'-vf'</span>,
+        <span class="str">'crop=ih*9/16:ih,scale=1080:1920'</span>  <span class="cm">// centre-crop to 9:16, scale to 1080×1920</span>
+      );
+    }
+
+    cmd.<span class="fn">output</span>(outPath)
+       .<span class="fn">on</span>(<span class="str">'end'</span>,   () => <span class="fn">resolve</span>(outPath))
+       .<span class="fn">on</span>(<span class="str">'error'</span>, (err) => <span class="fn">reject</span>(<span class="kw">new</span> <span class="obj">Error</span>(<span class="str">`FFmpeg failed: ${err.message}`</span>)))
+       .<span class="fn">run</span>();
+  });
+}</pre>
+</div>
+
+<div class="sl">Worker Integration — Probe → Transcode → Upload → Post</div>
+<div class="cb">
+  <div class="ch"><span class="d8" style="background:#06b6d4"></span> Inside BullMQ worker — where FFmpeg fits in</div>
+  <pre><span class="kw">import</span> { downloadToTemp, uploadTranscoded } <span class="kw">from</span> <span class="str">'../services/storage.js'</span>;
+<span class="kw">import</span> { probeVideo, needsTranscode, transcodeVideo } <span class="kw">from</span> <span class="str">'../services/transcode.js'</span>;
+
+<span class="cm">// Inside the Worker processor (before calling the platform adapter):</span>
+<span class="kw">let</span> mediaUrl = post.mediaUrl;           <span class="cm">// original S3/Cloudinary URL</span>
+<span class="kw">let</span> tempTranscoded = <span class="kw">null</span>;              <span class="cm">// track temp file for cleanup</span>
+
+<span class="kw">if</span> (post.mediaType === <span class="str">'video'</span>) {
+  <span class="cm">// 1. Download original from S3 to /tmp for ffprobe</span>
+  <span class="kw">const</span> tempInput = <span class="kw">await</span> <span class="fn">downloadToTemp</span>(post.mediaUrl, post.fileKey);
+
+  <span class="cm">// 2. Probe real file specs</span>
+  <span class="kw">const</span> probe = <span class="kw">await</span> <span class="fn">probeVideo</span>(tempInput);
+
+  <span class="cm">// 3. Check if this platform needs transcoding</span>
+  <span class="kw">if</span> (<span class="fn">needsTranscode</span>(probe, platform)) {
+    <span class="fn">log</span>(<span class="str">`Transcoding for ${platform}: codec=${probe.videoCodec}, size=${probe.sizeMB.toFixed(1)}MB`</span>);
+
+    <span class="cm">// 4. Transcode to platform spec — writes to /tmp</span>
+    tempTranscoded = <span class="kw">await</span> <span class="fn">transcodeVideo</span>(tempInput, platform);
+
+    <span class="cm">// 5. Upload transcoded file back to S3 as a new object</span>
+    <span class="kw">const</span> transcodedUrl = <span class="kw">await</span> <span class="fn">uploadTranscoded</span>(tempTranscoded, post.fileKey, platform);
+    mediaUrl = transcodedUrl;   <span class="cm">// platform adapter uses this URL</span>
+  }
+
+  <span class="kw">await</span> fs.<span class="fn">unlink</span>(tempInput).<span class="fn">catch</span>(() => {}); <span class="cm">// clean up original temp</span>
+}
+
+<span class="cm">// 6. Call platform adapter with (potentially transcoded) mediaUrl</span>
+<span class="kw">const</span> result = <span class="kw">await</span> handler({ post: { ...post.toObject(), mediaUrl }, creds });
+
+<span class="cm">// 7. Clean up transcoded temp file</span>
+<span class="kw">if</span> (tempTranscoded) <span class="kw">await</span> fs.<span class="fn">unlink</span>(tempTranscoded).<span class="fn">catch</span>(() => {});</pre>
+</div>
+
+<div class="sl">Image Transcoding — Sharp (not FFmpeg)</div>
+<div class="note ni"><strong>For images, use <code style="font-family:'IBM Plex Mono',monospace;font-size:11px;">sharp</code> (npm), not FFmpeg.</strong> Sharp is a Node.js image processing library backed by libvips — much faster and lighter than FFmpeg for image work. FFmpeg is overkill for images.</div>
+<div class="cb">
+  <div class="ch"><span class="d8" style="background:#c084fc"></span> services/transcodeImage.js — sharp for images</div>
+  <pre><span class="kw">import</span> sharp <span class="kw">from</span> <span class="str">'sharp'</span>;
+
+<span class="cm">// Per-platform image requirements</span>
+<span class="kw">const</span> IMAGE_PROFILES = {
+  instagram: { format: <span class="str">'jpeg'</span>, maxWidth: <span class="num">1440</span>, maxHeight: <span class="num">1800</span>, quality: <span class="num">90</span>,
+               maxSizeMB: <span class="num">8</span>, minAspect: <span class="num">4</span>/<span class="num">5</span>, maxAspect: <span class="num">1.91</span> },
+  facebook:  { format: <span class="str">'jpeg'</span>, maxWidth: <span class="num">2048</span>, maxHeight: <span class="num">2048</span>, quality: <span class="num">90</span>, maxSizeMB: <span class="num">4</span> },
+  twitter:   { format: <span class="str">'jpeg'</span>, maxWidth: <span class="num">4096</span>, maxHeight: <span class="num">4096</span>, quality: <span class="num">90</span>, maxSizeMB: <span class="num">5</span> },
+  linkedin:  { format: <span class="str">'jpeg'</span>, maxWidth: <span class="num">7680</span>, maxHeight: <span class="num">4320</span>, quality: <span class="num">90</span>, maxSizeMB: <span class="num">20</span> },
+};
+
+<span class="kw">export async function</span> <span class="fn">transcodeImage</span>(inputPath, platform) {
+  <span class="kw">const</span> p       = IMAGE_PROFILES[platform];
+  <span class="kw">const</span> outPath = path.<span class="fn">join</span>(os.<span class="fn">tmpdir</span>(), <span class="str">`img_${platform}_${Date.now()}.jpg`</span>);
+  <span class="kw">const</span> meta    = <span class="kw">await</span> sharp(inputPath).<span class="fn">metadata</span>();
+
+  <span class="kw">const</span> needsResize = meta.width > p.maxWidth || meta.height > p.maxHeight;
+  <span class="kw">const</span> needsConvert = meta.format !== p.format;
+  <span class="kw">const</span> needsAspectFix = p.minAspect && (meta.width / meta.height &lt; p.minAspect
+                                       || meta.width / meta.height > p.maxAspect);
+
+  <span class="kw">if</span> (!needsResize && !needsConvert && !needsAspectFix) <span class="kw">return</span> inputPath; <span class="cm">// no-op</span>
+
+  <span class="kw">let</span> transform = <span class="fn">sharp</span>(inputPath);
+
+  <span class="kw">if</span> (needsAspectFix) {
+    <span class="cm">// Crop to nearest valid aspect ratio (centre crop)</span>
+    <span class="kw">const</span> targetAspect = (p.minAspect + p.maxAspect) / <span class="num">2</span>;
+    <span class="kw">const</span> cropWidth  = Math.<span class="fn">min</span>(meta.width, Math.<span class="fn">floor</span>(meta.height * targetAspect));
+    <span class="kw">const</span> cropHeight = Math.<span class="fn">min</span>(meta.height, Math.<span class="fn">floor</span>(meta.width  / targetAspect));
+    transform = transform.<span class="fn">extract</span>({
+      left:   Math.<span class="fn">floor</span>((meta.width  - cropWidth)  / <span class="num">2</span>),
+      top:    Math.<span class="fn">floor</span>((meta.height - cropHeight) / <span class="num">2</span>),
+      width:  cropWidth, height: cropHeight
+    });
+  }
+
+  <span class="kw">if</span> (needsResize)
+    transform = transform.<span class="fn">resize</span>(p.maxWidth, p.maxHeight, { fit: <span class="str">'inside'</span>, withoutEnlargement: <span class="kw">true</span> });
+
+  <span class="kw">await</span> transform.<span class="fn">toFormat</span>(p.format, { quality: p.quality }).<span class="fn">toFile</span>(outPath);
+  <span class="kw">return</span> outPath;
+}</pre>
+</div>
+
+<div class="sl">Packages & Setup</div>
+<div class="g3">
+  <div class="card">
+    <div class="ct"><span class="cd" style="background:#fb923c"></span>FFmpeg packages</div>
+    <div class="ir"><span class="ik">Wrapper</span><span class="iv">fluent-ffmpeg</span></div>
+    <div class="ir"><span class="ik">Binary</span><span class="iv">ffmpeg-static (bundled, no system install)</span></div>
+    <div class="ir"><span class="ik">Probe binary</span><span class="iv">ffprobe-static (bundled)</span></div>
+    <div class="ir"><span class="ik">Why static?</span><span class="iv">Works in Docker/serverless without apt-get</span></div>
+    <div class="ir"><span class="ik">Alternative</span><span class="iv">System FFmpeg via apt-get (leaner image)</span></div>
+  </div>
+  <div class="card">
+    <div class="ct"><span class="cd" style="background:#c084fc"></span>Image packages</div>
+    <div class="ir"><span class="ik">Library</span><span class="iv">sharp (libvips-based)</span></div>
+    <div class="ir"><span class="ik">Speed</span><span class="iv">~4× faster than ImageMagick</span></div>
+    <div class="ir"><span class="ik">Operations</span><span class="iv">resize, crop, convert, compress</span></div>
+    <div class="ir"><span class="ik">Formats</span><span class="iv">JPEG, PNG, WebP, AVIF, GIF, TIFF</span></div>
+    <div class="ir"><span class="ik">Docker</span><span class="iv">Needs libvips — use sharp's bundled build</span></div>
+  </div>
+  <div class="card">
+    <div class="ct"><span class="cd" style="background:#10b981"></span>Key principles</div>
+    <div class="ir"><span class="ik">Probe first</span><span class="iv">Never transcode blindly — check specs first</span></div>
+    <div class="ir"><span class="ik">Per-platform</span><span class="iv">Transcode per platform, not once for all</span></div>
+    <div class="ir"><span class="ik">Temp files</span><span class="iv">Write to /tmp, always clean up after</span></div>
+    <div class="ir"><span class="ik">Re-upload</span><span class="iv">Transcoded file uploaded back to S3 with new key</span></div>
+    <div class="ir"><span class="ik">Original safe</span><span class="iv">Never overwrite original — keep in S3 as-is</span></div>
+    <div class="ir"><span class="ik">Disk space</span><span class="iv">Monitor /tmp — transcode large videos to streams</span></div>
+  </div>
+</div>
+
+<div class="note nw"><strong>Docker note:</strong> <code style="font-family:'IBM Plex Mono',monospace;font-size:11px;">ffmpeg-static</code> and <code style="font-family:'IBM Plex Mono',monospace;font-size:11px;">ffprobe-static</code> bundle Linux/macOS/Windows binaries and automatically pick the right one. No Dockerfile changes needed. Alternatively, add <code style="font-family:'IBM Plex Mono',monospace;font-size:11px;">RUN apt-get install -y ffmpeg</code> to your Dockerfile and use the system binary — gives a smaller Node.js dependency footprint but requires a Debian-based image.</div>
+</div>
+
+
+<!-- ═══════ PLATFORMS ═══════ -->
+<div class="panel" id="tab-platforms">
+<div class="sl">Platform API Integration</div>
+<div class="note nw"><strong>Each platform has its own OAuth flow, API library, and media constraints.</strong> You must connect each platform account separately and store the access tokens. Tokens refresh automatically for most platforms.</div>
+
+<div class="plat-grid">
+  <div class="plat-card">
+    <div class="plat-name" style="color:var(--ig)"><div class="plat-logo" style="background:rgba(225,48,108,.15)">📸</div>Instagram</div>
+    <div class="ir"><span class="ik">API</span><span class="iv">Instagram Graph API</span></div>
+    <div class="ir"><span class="ik">Library</span><span class="iv">Custom fetch (no official SDK)</span></div>
+    <div class="ir"><span class="ik">Image</span><span class="iv">JPG/PNG, max 8MB, 4:5 to 1.91:1</span></div>
+    <div class="ir"><span class="ik">Video</span><span class="iv">MP4, max 100MB, 3–60 sec</span></div>
+    <div class="ir"><span class="ik">Reel</span><span class="iv">MP4, max 1GB, 15–90 sec</span></div>
+    <div class="ir"><span class="ik">Auth</span><span class="iv">OAuth 2.0 long-lived token</span></div>
+    <div class="ir"><span class="ik">Flow</span><span class="iv">Create container → Publish</span></div>
+    <div class="ir"><span class="ik">Account</span><span class="iv"><span class="pill pr">Business/Creator account required</span></span></div>
+  </div>
+  <div class="plat-card">
+    <div class="plat-name" style="color:var(--fb)"><div class="plat-logo" style="background:rgba(24,119,242,.15)">📘</div>Facebook</div>
+    <div class="ir"><span class="ik">API</span><span class="iv">Facebook Graph API</span></div>
+    <div class="ir"><span class="ik">Library</span><span class="iv">fb (npm) or custom fetch</span></div>
+    <div class="ir"><span class="ik">Image</span><span class="iv">JPG/PNG, max 4MB per image</span></div>
+    <div class="ir"><span class="ik">Video</span><span class="iv">MP4/MOV, max 10GB, 1s–240min</span></div>
+    <div class="ir"><span class="ik">Post to</span><span class="iv">Page (not personal profile)</span></div>
+    <div class="ir"><span class="ik">Auth</span><span class="iv">Page Access Token (long-lived)</span></div>
+    <div class="ir"><span class="ik">Flow</span><span class="iv">POST /pageId/photos or /videos</span></div>
+    <div class="ir"><span class="ik">Account</span><span class="iv"><span class="pill pr">Facebook Page required</span></span></div>
+  </div>
+  <div class="plat-card">
+    <div class="plat-name" style="color:var(--tw)"><div class="plat-logo" style="background:rgba(29,161,242,.15)">🐦</div>X / Twitter</div>
+    <div class="ir"><span class="ik">API</span><span class="iv">Twitter API v2</span></div>
+    <div class="ir"><span class="ik">Library</span><span class="iv">twitter-api-v2 (npm)</span></div>
+    <div class="ir"><span class="ik">Image</span><span class="iv">JPG/PNG/GIF/WebP, max 5MB</span></div>
+    <div class="ir"><span class="ik">Video</span><span class="iv">MP4, max 512MB, max 140 sec</span></div>
+    <div class="ir"><span class="ik">Caption limit</span><span class="iv">280 characters</span></div>
+    <div class="ir"><span class="ik">Auth</span><span class="iv">OAuth 2.0 PKCE + refresh token</span></div>
+    <div class="ir"><span class="ik">Flow</span><span class="iv">Upload media → POST tweet with mediaId</span></div>
+    <div class="ir"><span class="ik">Tier</span><span class="iv"><span class="pill pa">Basic tier ($100/mo) needed for posting</span></span></div>
+  </div>
+  <div class="plat-card">
+    <div class="plat-name" style="color:var(--li)"><div class="plat-logo" style="background:rgba(0,119,181,.15)">💼</div>LinkedIn</div>
+    <div class="ir"><span class="ik">API</span><span class="iv">LinkedIn v2 API</span></div>
+    <div class="ir"><span class="ik">Library</span><span class="iv">linkedin-api-v2-client (npm)</span></div>
+    <div class="ir"><span class="ik">Image</span><span class="iv">JPG/PNG, max 20MB</span></div>
+    <div class="ir"><span class="ik">Video</span><span class="iv">MP4, max 5GB, 3s–15min</span></div>
+    <div class="ir"><span class="ik">Post type</span><span class="iv">Person or Company page</span></div>
+    <div class="ir"><span class="ik">Auth</span><span class="iv">OAuth 2.0, 60-day token</span></div>
+    <div class="ir"><span class="ik">Flow</span><span class="iv">Register upload → Upload binary → Create post</span></div>
+    <div class="ir"><span class="ik">Note</span><span class="iv"><span class="pill pc">3-step upload process</span></span></div>
+  </div>
+  <div class="plat-card">
+    <div class="plat-name" style="color:var(--yt)"><div class="plat-logo" style="background:rgba(255,0,0,.15)">▶️</div>YouTube</div>
+    <div class="ir"><span class="ik">API</span><span class="iv">YouTube Data API v3</span></div>
+    <div class="ir"><span class="ik">Library</span><span class="iv">googleapis (npm)</span></div>
+    <div class="ir"><span class="ik">Video only</span><span class="iv">MP4/MOV/AVI, max 256GB</span></div>
+    <div class="ir"><span class="ik">Thumbnail</span><span class="iv">Optional JPG/PNG, max 2MB</span></div>
+    <div class="ir"><span class="ik">Privacy</span><span class="iv">public / unlisted / private</span></div>
+    <div class="ir"><span class="ik">Auth</span><span class="iv">OAuth 2.0 + refresh token</span></div>
+    <div class="ir"><span class="ik">Flow</span><span class="iv">Resumable upload (multipart)</span></div>
+    <div class="ir"><span class="ik">Note</span><span class="iv"><span class="pill pa">Unverified accounts: 15min max</span></span></div>
+  </div>
+  <div class="plat-card">
+    <div class="plat-name" style="color:var(--tk)"><div class="plat-logo" style="background:rgba(105,201,208,.15)">🎵</div>TikTok</div>
+    <div class="ir"><span class="ik">API</span><span class="iv">TikTok Content Posting API</span></div>
+    <div class="ir"><span class="ik">Library</span><span class="iv">Custom fetch (no SDK)</span></div>
+    <div class="ir"><span class="ik">Video only</span><span class="iv">MP4/MOV/WebM, max 4GB</span></div>
+    <div class="ir"><span class="ik">Duration</span><span class="iv">3 sec – 10 min</span></div>
+    <div class="ir"><span class="ik">Auth</span><span class="iv">OAuth 2.0 with refresh token</span></div>
+    <div class="ir"><span class="ik">Flow</span><span class="iv">Init upload → Chunk upload → Publish</span></div>
+    <div class="ir"><span class="ik">Approval</span><span class="iv"><span class="pill pr">App sandbox → production approval required</span></span></div>
+  </div>
+</div>
+
+<div class="sl">Platform Adapter Pattern</div>
+<div class="cb">
+  <div class="ch"><span class="d8" style="background:var(--ig)"></span> adapters/instagram.js — example adapter</div>
+  <pre><span class="kw">export async function</span> <span class="fn">postToInstagram</span>({ post, creds }) {
+  <span class="kw">const</span> { accessToken, instagramAccountId } = creds;
+  <span class="kw">const</span> baseUrl = <span class="str">`https://graph.facebook.com/v21.0/${instagramAccountId}`</span>;  <span class="cm">// check latest at developers.facebook.com/docs/graph-api/changelog</span>
+
+  <span class="kw">if</span> (post.mediaType === <span class="str">'image'</span>) {
+    <span class="cm">// Step 1: Create media container</span>
+    <span class="kw">const</span> container = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">`${baseUrl}/media`</span>, {
+      method: <span class="str">'POST'</span>,
+      body: JSON.<span class="fn">stringify</span>({ image_url: post.mediaUrl, caption: post.caption,
+                              access_token: accessToken })
+    });
+    <span class="kw">const</span> { id: creationId } = <span class="kw">await</span> container.<span class="fn">json</span>();
+
+    <span class="cm">// Step 2: Publish container</span>
+    <span class="kw">const</span> publish = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">`${baseUrl}/media_publish`</span>, {
+      method: <span class="str">'POST'</span>,
+      body: JSON.<span class="fn">stringify</span>({ creation_id: creationId, access_token: accessToken })
+    });
+    <span class="kw">const</span> { id } = <span class="kw">await</span> publish.<span class="fn">json</span>();
+    <span class="kw">return</span> { id, url: <span class="str">`https://www.instagram.com/p/${id}`</span> };
+  }
+  <span class="cm">// Video: same but with video_url + must poll container status before publish</span>
+  <span class="kw">if</span> (post.mediaType === <span class="str">'video'</span>) {
+    <span class="cm">// Step 1: Create container with video_url</span>
+    <span class="kw">const</span> containerRes = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">`${baseUrl}/media`</span>, {
+      method: <span class="str">'POST'</span>,
+      body: JSON.<span class="fn">stringify</span>({ video_url: post.mediaUrl, caption: post.caption,
+                              media_type: <span class="str">'REELS'</span>, access_token: accessToken })
+    });
+    <span class="kw">const</span> { id: creationId } = <span class="kw">await</span> containerRes.<span class="fn">json</span>();
+
+    <span class="cm">// Step 2: Poll until container is ready (FINISHED or ERROR)</span>
+    <span class="kw">let</span> statusCode = <span class="str">'IN_PROGRESS'</span>;
+    <span class="kw">while</span> (statusCode === <span class="str">'IN_PROGRESS'</span>) {
+      <span class="kw">await</span> <span class="kw">new</span> <span class="obj">Promise</span>(r => <span class="fn">setTimeout</span>(r, <span class="num">5000</span>));  <span class="cm">// wait 5s</span>
+      <span class="kw">const</span> statusRes = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">`https://graph.facebook.com/v18.0/${creationId}?fields=status_code&access_token=${accessToken}`</span>);
+      ({ status_code: statusCode } = <span class="kw">await</span> statusRes.<span class="fn">json</span>());
+      <span class="kw">if</span> (statusCode === <span class="str">'ERROR'</span>) <span class="kw">throw new</span> <span class="obj">Error</span>(<span class="str">'Instagram video processing failed'</span>);
+    }
+
+    <span class="cm">// Step 3: Publish the ready container</span>
+    <span class="kw">const</span> publish = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">`${baseUrl}/media_publish`</span>, {
+      method: <span class="str">'POST'</span>,
+      body: JSON.<span class="fn">stringify</span>({ creation_id: creationId, access_token: accessToken })
+    });
+    <span class="kw">const</span> { id } = <span class="kw">await</span> publish.<span class="fn">json</span>();
+    <span class="kw">return</span> { id, url: <span class="str">`https://www.instagram.com/reel/${id}`</span> };
+  }</pre>
+</div>
+
+<div class="sl">OAuth Token Storage</div>
+<div class="cb">
+  <div class="ch"><span class="d8" style="background:var(--ok)"></span> SocialAccount document — per user, per platform</div>
+  <pre>{
+  userId:        ObjectId,           <span class="cm">// ref to User</span>
+  platform:      <span class="str">'instagram' | 'facebook' | 'twitter' | 'linkedin' | 'youtube' | 'tiktok'</span>,
+  accessToken:   <span class="obj">String</span>,             <span class="cm">// encrypted at rest (AES-256)</span>
+  refreshToken:  <span class="obj">String</span>,             <span class="cm">// encrypted at rest</span>
+  tokenExpiry:   <span class="obj">Date</span>,
+  platformUserId: <span class="obj">String</span>,
+  platformUsername: <span class="obj">String</span>,
+  profilePicUrl: <span class="obj">String</span>,
+  scope:         [<span class="obj">String</span>],           <span class="cm">// granted OAuth scopes</span>
+  isActive:      <span class="obj">Boolean</span>,
+  connectedAt:   <span class="obj">Date</span>
+}
+
+<span class="cm">// CRITICAL: Encrypt tokens before storing in MongoDB</span>
+<span class="cm">// Use: crypto.createCipheriv('aes-256-gcm', ENCRYPTION_KEY, iv)</span>
+<span class="cm">// Never store raw tokens in DB</span></pre>
+</div>
+</div>
+
+
+<!-- ═══════ SCHEMA ═══════ -->
+<div class="panel" id="tab-schema">
+<div class="sl">MongoDB Data Models</div>
+
+<div class="cb">
+  <div class="ch"><span class="d8" style="background:var(--q2)"></span> Post — main scheduled post document</div>
+  <pre>{
+  <span class="key">userId</span>:       { type: ObjectId, ref: <span class="str">'User'</span>, index: <span class="kw">true</span> },
+  <span class="key">mediaUrl</span>:     <span class="obj">String</span>,    <span class="cm">// S3/Cloudinary public URL</span>
+  <span class="key">fileKey</span>:      <span class="obj">String</span>,    <span class="cm">// S3 key or Cloudinary publicId (for deletion)</span>
+  <span class="key">thumbnailUrl</span>: <span class="obj">String</span>,    <span class="cm">// video thumbnail (auto-generated or user-picked)</span>
+  <span class="key">mediaType</span>:    { type: <span class="obj">String</span>, enum: [<span class="str">'image'</span>, <span class="str">'video'</span>] },
+  <span class="key">mimeType</span>:     <span class="obj">String</span>,    <span class="cm">// e.g. 'video/mp4', 'image/jpeg'</span>
+  <span class="key">fileSizeMB</span>:   <span class="obj">Number</span>,
+  <span class="key">durationSec</span>:  <span class="obj">Number</span>,    <span class="cm">// video only</span>
+  <span class="key">caption</span>:      <span class="obj">String</span>,    <span class="cm">// max 2200 chars (Instagram limit)</span>
+  <span class="key">hashtags</span>:     [<span class="obj">String</span>],
+  <span class="key">scheduledAt</span>:  { type: <span class="obj">Date</span>, index: <span class="kw">true</span> },   <span class="cm">// must be >= now + 15min</span>
+  <span class="key">status</span>:       { type: <span class="obj">String</span>,
+                  enum: [<span class="str">'scheduled'</span>,<span class="str">'processing'</span>,<span class="str">'published'</span>,<span class="str">'failed'</span>,<span class="str">'cancelled'</span>],
+                  default: <span class="str">'scheduled'</span> },
+
+  <span class="cm">// Per-platform job tracking</span>
+  <span class="key">platformJobs</span>: [{
+    <span class="key">platform</span>:       <span class="obj">String</span>,
+    <span class="key">jobId</span>:          <span class="obj">String</span>,     <span class="cm">// BullMQ job ID</span>
+    <span class="key">status</span>:         { type: <span class="obj">String</span>, enum: [<span class="str">'pending'</span>,<span class="str">'processing'</span>,<span class="str">'published'</span>,<span class="str">'failed'</span>] },
+    <span class="key">platformPostId</span>: <span class="obj">String</span>,     <span class="cm">// ID returned by platform after publish</span>
+    <span class="key">platformUrl</span>:    <span class="obj">String</span>,     <span class="cm">// live URL of the published post</span>
+    <span class="key">error</span>:          <span class="obj">String</span>,     <span class="cm">// error message if failed</span>
+    <span class="key">publishedAt</span>:    <span class="obj">Date</span>,
+    <span class="key">attempts</span>:       <span class="obj">Number</span>
+  }],
+
+  createdAt, updatedAt
+}
+
+<span class="cm">// Indexes:</span>
+<span class="cm">// { userId: 1, scheduledAt: -1 } — dashboard listing</span>
+<span class="cm">// { status: 1, scheduledAt: 1 } — admin monitoring</span>
+<span class="cm">// TTL on scheduledAt for auto-archiving old posts (optional)</span></pre>
+</div>
+
+<div class="g2">
+  <div class="cb">
+    <div class="ch"><span class="d8" style="background:var(--notif)"></span> Notification document</div>
+    <pre>{
+  userId:    ObjectId,
+  type:      <span class="str">'post_success' | 'post_failed' | 'post_processing'</span>,
+  postId:    ObjectId,
+  platform:  <span class="obj">String</span>,
+  message:   <span class="obj">String</span>,
+  platformUrl: <span class="obj">String</span>,
+  isRead:    { type: <span class="obj">Boolean</span>, default: <span class="kw">false</span> },
+  createdAt: <span class="obj">Date</span>   <span class="cm">// TTL: 30 days</span>
+}</pre>
+  </div>
+  <div class="cb">
+    <div class="ch"><span class="d8" style="background:var(--ok)"></span> Post.updatePlatformStatus() helper</div>
+    <pre><span class="cm">// Instance method on Post model</span>
+PostSchema.methods.<span class="fn">updatePlatformStatus</span> =
+  <span class="kw">async function</span>(platform, status, extra = {}) {
+    <span class="kw">const</span> idx = <span class="kw">this</span>.platformJobs
+      .<span class="fn">findIndex</span>(j => j.platform === platform);
+    <span class="kw">this</span>.platformJobs[idx] = {
+      ...<span class="kw">this</span>.platformJobs[idx].toObject(),
+      status, publishedAt: <span class="kw">new</span> <span class="obj">Date</span>(), ...extra
+    };
+    <span class="kw">return this</span>.<span class="fn">save</span>();
+  };</pre>
+  </div>
+</div>
+</div>
+
+
+<!-- ═══════ NOTIFICATIONS ═══════ -->
+<div class="panel" id="tab-notifications">
+<div class="sl">Notification System Design</div>
+<div class="note ni">Notifications flow via <strong>WebSocket (socket.io)</strong> in real-time. If the user is not connected, notifications are stored in MongoDB and fetched on next login. The frontend shows toast notifications with platform-specific icons and colours.</div>
+
+<div class="sl">Notification Examples</div>
+<div class="notif-demo">
+  <div class="notif ok">
+    <div class="notif-icon">✅</div>
+    <div class="notif-body">
+      <div class="notif-title ok">Posted to Instagram</div>
+      <div class="notif-msg">Your post "Summer collection launch 🌊" was published successfully. <a href="#" style="color:#4ade80;">View post →</a></div>
+    </div>
+    <div class="notif-time">just now</div>
+  </div>
+  <div class="notif ok" style="animation-delay:.1s">
+    <div class="notif-icon">✅</div>
+    <div class="notif-body">
+      <div class="notif-title ok">Posted to LinkedIn</div>
+      <div class="notif-msg">Your video "Q4 product demo" was published to your company page. <a href="#" style="color:#4ade80;">View post →</a></div>
+    </div>
+    <div class="notif-time">just now</div>
+  </div>
+  <div class="notif err" style="animation-delay:.2s">
+    <div class="notif-icon">❌</div>
+    <div class="notif-body">
+      <div class="notif-title err">Instagram Failed</div>
+      <div class="notif-msg">Video rejected: duration exceeds 60 seconds for regular posts. Try posting as a Reel instead.</div>
+    </div>
+    <div class="notif-time">2 min ago</div>
+  </div>
+  <div class="notif warn" style="animation-delay:.3s">
+    <div class="notif-icon">⏳</div>
+    <div class="notif-body">
+      <div class="notif-title warn">TikTok Processing</div>
+      <div class="notif-msg">Your video is being processed by TikTok. This may take a few minutes.</div>
+    </div>
+    <div class="notif-time">3 min ago</div>
+  </div>
+  <div class="notif info" style="animation-delay:.4s">
+    <div class="notif-icon">📅</div>
+    <div class="notif-body">
+      <div class="notif-title info">Post Scheduled</div>
+      <div class="notif-msg">Your post is scheduled for <strong style="color:var(--tx)">tomorrow at 9:00 AM</strong> to Instagram, Facebook, and Twitter.</div>
+    </div>
+    <div class="notif-time">5 min ago</div>
+  </div>
+</div>
+
+<div class="sl">WebSocket Implementation</div>
+<div class="cb">
+  <div class="ch"><span class="d8" style="background:var(--ws)"></span> Backend — socket.io setup</div>
+  <pre><span class="cm">// server.js — attach socket.io to HTTP server</span>
+<span class="kw">import</span> { Server } <span class="kw">from</span> <span class="str">'socket.io'</span>;
+<span class="kw">export const</span> io = <span class="kw">new</span> <span class="fn">Server</span>(httpServer, {
+  cors: { origin: process.env.FRONTEND_URL, credentials: <span class="kw">true</span> }
+});
+
+io.<span class="fn">use</span>(<span class="kw">async</span> (socket, next) => {
+  <span class="cm">// Authenticate socket with JWT from handshake</span>
+  <span class="kw">const</span> token = socket.handshake.auth.token;
+  <span class="kw">try</span> {
+    <span class="kw">const</span> payload = jwt.<span class="fn">verify</span>(token, process.env.JWT_SECRET);
+    socket.userId = payload.userId;
+    <span class="fn">next</span>();
+  } <span class="kw">catch</span>(e) { <span class="fn">next</span>(<span class="kw">new</span> <span class="obj">Error</span>(<span class="str">'Unauthorized'</span>)); }
+});
+
+io.<span class="fn">on</span>(<span class="str">'connection'</span>, (socket) => {
+  <span class="cm">// Join user-specific room for targeted notifications</span>
+  socket.<span class="fn">join</span>(socket.userId.<span class="fn">toString</span>());  <span class="cm">// join room keyed by userId string</span>
+
+  socket.<span class="fn">on</span>(<span class="str">'disconnect'</span>, () => {
+    socket.<span class="fn">leave</span>(socket.userId);
+  });
+});
+
+<span class="cm">// Worker emits to user's room:</span>
+io.<span class="fn">to</span>(userId).<span class="fn">emit</span>(<span class="str">'post:success'</span>, { postId, platform, url });
+io.<span class="fn">to</span>(userId).<span class="fn">emit</span>(<span class="str">'post:failed'</span>,  { postId, platform, error });
+io.<span class="fn">to</span>(userId).<span class="fn">emit</span>(<span class="str">'post:processing'</span>, { postId, platform });</pre>
+</div>
+
+<div class="cb">
+  <div class="ch"><span class="d8" style="background:var(--ok)"></span> Frontend — React notification hook</div>
+  <pre><span class="cm">// hooks/useNotifications.js</span>
+<span class="kw">export function</span> <span class="fn">useNotifications</span>() {
+  <span class="kw">const</span> { accessToken } = <span class="fn">useAuthStore</span>();
+  <span class="kw">const</span> [notifications, setNotifications] = <span class="fn">useState</span>([]);
+  <span class="kw">const</span> socketRef = <span class="fn">useRef</span>(<span class="kw">null</span>);
+
+  <span class="fn">useEffect</span>(() => {
+    <span class="kw">if</span> (!accessToken) <span class="kw">return</span>;
+
+    <span class="cm">// Connect with JWT auth</span>
+    socketRef.current = <span class="fn">io</span>(process.env.VITE_API_URL, {
+      auth: { token: accessToken }, withCredentials: <span class="kw">true</span>
+    });
+
+    <span class="kw">const</span> socket = socketRef.current;
+
+    socket.<span class="fn">on</span>(<span class="str">'post:success'</span>, ({ postId, platform, url }) => {
+      <span class="fn">toast</span>.<span class="fn">success</span>(<span class="str">`Posted to ${platform}!`</span>, { description: <span class="str">'View post →'</span>, action: { label: <span class="str">'View'</span>, onClick: () => window.<span class="fn">open</span>(url) } });
+      <span class="fn">updatePostStatus</span>(postId, platform, <span class="str">'published'</span>);
+    });
+
+    socket.<span class="fn">on</span>(<span class="str">'post:failed'</span>, ({ postId, platform, error }) => {
+      <span class="fn">toast</span>.<span class="fn">error</span>(<span class="str">`${platform} failed`</span>, { description: error });
+      <span class="fn">updatePostStatus</span>(postId, platform, <span class="str">'failed'</span>);
+    });
+
+    socket.<span class="fn">on</span>(<span class="str">'post:processing'</span>, ({ postId, platform }) => {
+      <span class="fn">toast</span>.<span class="fn">info</span>(<span class="str">`Posting to ${platform}...`</span>);
+      <span class="fn">updatePostStatus</span>(postId, platform, <span class="str">'processing'</span>);
+    });
+
+    <span class="kw">return</span> () => socket.<span class="fn">disconnect</span>();
+  }, [accessToken]);
+}</pre>
+</div>
+
+<div class="sl">Error Types + Messages</div>
+<div class="card">
+  <table class="ctbl">
+    <thead><tr><th>Error Type</th><th>When</th><th>User Message</th></tr></thead>
+    <tbody>
+      <tr><td>Too soon</td><td>scheduledAt &lt; now + 15 min</td><td>"Schedule at least 15 minutes ahead"</td></tr>
+      <tr><td>File too large</td><td>Exceeds platform limit</td><td>"Instagram images max 8MB. Your file: 12MB"</td></tr>
+      <tr><td>Wrong format</td><td>TikTok receives JPEG</td><td>"TikTok only accepts MP4 or MOV videos"</td></tr>
+      <tr><td>Token expired</td><td>OAuth token needs refresh</td><td>"Reconnect your Instagram account in Settings"</td></tr>
+      <tr><td>Rate limited</td><td>Platform API 429</td><td>"Instagram rate limit reached. Retrying in 1 hour."</td></tr>
+      <tr><td>Caption too long</td><td>Twitter 280 char limit</td><td>"Twitter caption is 312 chars. Limit is 280."</td></tr>
+      <tr><td>Account disconnected</td><td>Token revoked by user</td><td>"Your Facebook account needs to be reconnected"</td></tr>
+      <tr><td>Platform API down</td><td>5xx from platform</td><td>"TikTok is unavailable. Will retry automatically."</td></tr>
+    </tbody>
+  </table>
+</div>
+</div>
+
+
+<!-- ═══════ FRONTEND ═══════ -->
+<div class="panel" id="tab-frontend">
+<div class="sl">Frontend Implementation Steps</div>
+
+<div class="tl">
+  <div class="tli si">
+    <div class="tlt">1 · Schedule Form Component</div>
+    <div class="tld">react-hook-form + zod. Fields: media upload (drag & drop), caption textarea (live char count per platform), platform toggles (show only connected platforms), datetime picker (disable past + next 15 min), per-platform caption overrides (advanced). Preview pane on right shows how post looks on each platform.</div>
+  </div>
+  <div class="tli si">
+    <div class="tlt">2 · Datetime Picker — 15-Minute Enforcement</div>
+    <div class="tld">Use react-datepicker or @mui/x-date-pickers. Set minDateTime to new Date(Date.now() + 15 * 60 * 1000). Refresh minDateTime every minute via setInterval. Show tooltip "Must be at least 15 minutes from now" when time is too close.</div>
+  </div>
+  <div class="tli si">
+    <div class="tlt">3 · Media Upload with Progress</div>
+    <div class="tld">Step 1: GET /api/media/presign to get presigned URL. Step 2: PUT to S3 directly with axios + onUploadProgress (show %). Step 3: Show video thumbnail preview. Generate thumbnail client-side via canvas + video element. Step 4: Send mediaUrl + fileKey to /api/posts/schedule.</div>
+  </div>
+  <div class="tli si">
+    <div class="tlt">4 · Connected Accounts UI</div>
+    <div class="tld">Settings → Social Accounts page. Show each platform with: connected/disconnected status, profile picture + username, "Connect" button (triggers OAuth flow) or "Disconnect" button. Store connection status in Zustand store so scheduler form only shows connected platforms.</div>
+  </div>
+  <div class="tli so">
+    <div class="tlt">5 · Scheduled Posts Dashboard</div>
+    <div class="tld">List view of all scheduled posts sorted by scheduledAt. Per post: thumbnail, caption preview, platform badges with per-platform status (pending / published / failed). Countdown timer showing time until posting. Edit / Cancel buttons (cancel removes BullMQ job). Filter by status and platform.</div>
+  </div>
+  <div class="tli si">
+    <div class="tlt">6 · Toast Notifications (sonner or react-hot-toast)</div>
+    <div class="tld">Use sonner (Radix-based) or react-hot-toast. Position: top-right. Success: green with platform icon + "View post" action button. Failure: red with error message + "Retry" button. Processing: neutral spinner. Auto-dismiss after 5s (success) / 10s (error). Notification bell icon shows unread count from DB.</div>
+  </div>
+</div>
+
+<div class="sl">Validation — Client Side</div>
+<div class="cb">
+  <div class="ch"><span class="d8" style="background:var(--q1)"></span> Zod schema — per-platform validation</div>
+  <pre><span class="kw">const</span> scheduleSchema = z.<span class="fn">object</span>({
+  caption:     z.<span class="fn">string</span>().<span class="fn">max</span>(<span class="num">2200</span>, <span class="str">'Max 2200 characters'</span>),
+  platforms:   z.<span class="fn">array</span>(z.<span class="fn">enum</span>([<span class="str">'instagram'</span>,<span class="str">'twitter'</span>,<span class="str">'facebook'</span>,<span class="str">'linkedin'</span>,<span class="str">'youtube'</span>,<span class="str">'tiktok'</span>]))
+                .<span class="fn">min</span>(<span class="num">1</span>, <span class="str">'Select at least one platform'</span>),
+  scheduledAt: z.<span class="fn">date</span>()
+                .<span class="fn">min</span>(<span class="kw">new</span> <span class="obj">Date</span>(<span class="obj">Date</span>.<span class="fn">now</span>() + <span class="num">15</span> * <span class="num">60</span> * <span class="num">1000</span>),
+                     <span class="str">'Must schedule at least 15 minutes ahead'</span>),
+  mediaUrl:    z.<span class="fn">string</span>().<span class="fn">url</span>(<span class="str">'Upload media first'</span>),
+}).<span class="fn">superRefine</span>((data, ctx) => {
+  <span class="cm">// Twitter: caption max 280</span>
+  <span class="kw">if</span> (data.platforms.includes(<span class="str">'twitter'</span>) && data.caption.length > <span class="num">280</span>)
+    ctx.<span class="fn">addIssue</span>({ path: [<span class="str">'caption'</span>], message: <span class="str">'Twitter max 280 characters'</span> });
+});</pre>
+</div>
+</div>
+
+
+<!-- ═══════ SCALE ═══════ -->
+<div class="panel" id="tab-scale">
+<div class="sl">Scaling the Scheduler</div>
+
+<div class="g2">
+  <div class="card">
+    <div class="ct"><span class="cd" style="background:var(--ok)"></span>Few Users</div>
+    <div class="ir"><span class="ik">Redis</span><span class="iv">Single Redis instance (Redis Cloud free)</span></div>
+    <div class="ir"><span class="ik">BullMQ workers</span><span class="iv">1 worker process, concurrency 5</span></div>
+    <div class="ir"><span class="ik">File storage</span><span class="iv">Cloudinary free tier or S3</span></div>
+    <div class="ir"><span class="ik">WebSocket</span><span class="iv">socket.io on single server</span></div>
+    <div class="ir"><span class="ik">MongoDB</span><span class="iv">Atlas free / shared tier</span></div>
+    <div class="ir"><span class="ik">Deployment</span><span class="iv">Railway / Render — worker + API same server</span></div>
+  </div>
+  <div class="card">
+    <div class="ct"><span class="cd" style="background:var(--warn)"></span>Millions of Users</div>
+    <div class="ir"><span class="ik">Redis</span><span class="iv">Redis Cluster (Upstash or ElastiCache)</span></div>
+    <div class="ir"><span class="ik">BullMQ workers</span><span class="iv">Separate worker fleet — auto-scale on queue depth</span></div>
+    <div class="ir"><span class="ik">File storage</span><span class="iv">S3 + CloudFront CDN for media delivery</span></div>
+    <div class="ir"><span class="ik">WebSocket</span><span class="iv">socket.io + Redis adapter (pub/sub across instances)</span></div>
+    <div class="ir"><span class="ik">MongoDB</span><span class="iv">Atlas M30+ with replica set</span></div>
+    <div class="ir"><span class="ik">Deployment</span><span class="iv">Worker pods (Kubernetes) separate from API pods</span></div>
+  </div>
+</div>
+
+<div class="sl">Package Summary</div>
+<div class="g3">
+  <div class="card">
+    <div class="ct"><span class="cd" style="background:var(--q1)"></span>Backend</div>
+    <div class="ir"><span class="ik">Job queue</span><span class="iv">bullmq + ioredis</span></div>
+    <div class="ir"><span class="ik">WebSocket</span><span class="iv">socket.io</span></div>
+    <div class="ir"><span class="ik">S3 upload</span><span class="iv">@aws-sdk/client-s3</span></div>
+    <div class="ir"><span class="ik">Cloudinary</span><span class="iv">cloudinary (npm)</span></div>
+    <div class="ir"><span class="ik">Twitter</span><span class="iv">twitter-api-v2</span></div>
+    <div class="ir"><span class="ik">YouTube</span><span class="iv">googleapis</span></div>
+    <div class="ir"><span class="ik">Token encrypt</span><span class="iv">Node crypto (AES-256-GCM)</span></div>
+    <div class="ir"><span class="ik">Validation</span><span class="iv">zod</span></div>
+    <div class="ir"><span class="ik">Video transcode</span><span class="iv">fluent-ffmpeg + ffmpeg-static + ffprobe-static</span></div>
+    <div class="ir"><span class="ik">Image transcode</span><span class="iv">sharp</span></div>
+  </div>
+  <div class="card">
+    <div class="ct"><span class="cd" style="background:var(--q2)"></span>Frontend</div>
+    <div class="ir"><span class="ik">WebSocket</span><span class="iv">socket.io-client</span></div>
+    <div class="ir"><span class="ik">Toasts</span><span class="iv">sonner or react-hot-toast</span></div>
+    <div class="ir"><span class="ik">Date picker</span><span class="iv">react-datepicker</span></div>
+    <div class="ir"><span class="ik">Forms</span><span class="iv">react-hook-form + zod</span></div>
+    <div class="ir"><span class="ik">File upload</span><span class="iv">react-dropzone</span></div>
+    <div class="ir"><span class="ik">State</span><span class="iv">Zustand</span></div>
+    <div class="ir"><span class="ik">HTTP</span><span class="iv">axios (upload progress)</span></div>
+  </div>
+  <div class="card">
+    <div class="ct"><span class="cd" style="background:var(--q3)"></span>Key Rules</div>
+    <div class="ir"><span class="ik">15-min rule</span><span class="iv"><span class="pill pa">Enforced FE + BE</span></span></div>
+    <div class="ir"><span class="ik">One job/platform</span><span class="iv"><span class="pill pg">Independent failure</span></span></div>
+    <div class="ir"><span class="ik">Encrypt tokens</span><span class="iv"><span class="pill pr">AES-256-GCM</span></span></div>
+    <div class="ir"><span class="ik">Never POST sync</span><span class="iv"><span class="pill pb">Always use queue</span></span></div>
+    <div class="ir"><span class="ik">Retry on fail</span><span class="iv">3x exponential backoff</span></div>
+    <div class="ir"><span class="ik">WS + DB notify</span><span class="iv">Real-time + persistent</span></div>
+    <div class="ir"><span class="ik">Probe first</span><span class="iv"><span class="pill pc">ffprobe before FFmpeg</span></span></div>
+    <div class="ir"><span class="ik">Per-platform encode</span><span class="iv">Different spec per platform</span></div>
+    <div class="ir"><span class="ik">Temp cleanup</span><span class="iv">Always delete /tmp after transcode</span></div>
+  </div>
+</div>
+</div>
+
+</div><!-- /wrap -->
+<button class="theme-btn" onclick="toggleTheme()" id="themeBtn">
+  <span class="icon">🌙</span><span id="themeLabel">Light Mode</span>
+</button>
+<script>
+function go(n) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('tab-' + n).classList.add('active');
+}
+function toggleTheme(){
+  const html=document.documentElement;
+  const isLight=html.getAttribute('data-theme')==='light';
+  html.setAttribute('data-theme',isLight?'dark':'light');
+  document.getElementById('themeLabel').textContent=isLight?'Light Mode':'Dark Mode';
+  document.querySelector('#themeBtn .icon').textContent=isLight?'🌙':'☀️';
+  localStorage.setItem('theme',isLight?'dark':'light');
+}
+(function(){
+  const saved=localStorage.getItem('theme')||'dark';
+  document.documentElement.setAttribute('data-theme',saved);
+  if(saved==='light'){
+    document.addEventListener('DOMContentLoaded',()=>{
+      document.getElementById('themeLabel').textContent='Dark Mode';
+      document.querySelector('#themeBtn .icon').textContent='☀️';
+    });
+  }
+})();
+</script>
+</body>
+</html>

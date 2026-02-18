@@ -289,7 +289,7 @@ code.ic{font-family:'IBM Plex Mono',monospace;font-size:11px;background:var(--s2
       <div class="ffb" style="border-color:rgba(192,132,252,.3)">
         <div class="ffi">☁️</div>
         <div class="fft" style="color:#c084fc">S3 / Cloudinary</div>
-        <div class="ffd">Media uploaded directly. URL returned to backend.</div>
+        <div class="ffd">Backend issues presigned URL. Frontend uploads media directly. Public URL passed to backend.</div>
       </div>
     </div>
     <div class="ffa">→</div>
@@ -429,6 +429,31 @@ code.ic{font-family:'IBM Plex Mono',monospace;font-size:11px;background:var(--s2
   </div>
 </div>
 
+<div class="note ni" style="margin-top:24px"><strong>What happens when the scheduled time arrives:</strong> The BullMQ worker picks up each job, transcodes the media if needed, and posts to the platform API.</div>
+
+<div class="tl">
+  <div class="tli si">
+    <div class="tlt">7 · Scheduled time arrives <span class="pill pc">BullMQ Worker</span></div>
+    <div class="tld">Redis fires the delayed job. BullMQ worker picks it up and begins execution. Fetches Post document and SocialAccount credentials from MongoDB. If video: downloads from S3 to /tmp for FFmpeg processing.</div>
+  </div>
+  <div class="tli so">
+    <div class="tlt">8 · FFmpeg probe + transcode (videos only) <span class="pill pc">Worker → FFmpeg</span></div>
+    <div class="tld">Runs ffprobe to read actual codec, resolution, fps, bitrate, aspect ratio. Checks against platform requirements. If specs fail (e.g. wrong codec, too large, wrong aspect ratio): ffmpeg transcodes to platform spec. If specs pass: skip FFmpeg entirely. Transcoded file uploaded back to S3 with new key. Original file preserved.</div>
+  </div>
+  <div class="tli si">
+    <div class="tlt">9 · Post to platform API <span class="pill pb">Worker → Platform</span></div>
+    <div class="tld">Calls platform adapter (postToInstagram, postToTwitter, etc) with transcoded mediaUrl. Platform API creates the post. For Instagram videos: poll container status until FINISHED. Returns platform post ID or throws error.</div>
+  </div>
+  <div class="tli so">
+    <div class="tlt">10 · Update DB + notify user <span class="pill pg">Success Path</span></div>
+    <div class="tld">Mark platformJob status as 'published'. Save platform post ID + URL. Emit WebSocket event: post:success to user's room. Frontend shows toast: "Posted to Instagram ✓" with link to view post. Notification saved to DB.</div>
+  </div>
+  <div class="tli sw">
+    <div class="tlt">11 · Handle failures <span class="pill pr">Failure Path</span></div>
+    <div class="tld">If platform API fails (auth expired, rate limit, invalid media): BullMQ retries job (3 attempts, exponential backoff). After 3 failures: mark as 'failed', save error message. Emit post:failed event. Frontend shows error toast with retry button. User can manually retry or delete post.</div>
+  </div>
+</div>
+
 <div class="sl">Backend — Schedule Endpoint</div>
 <div class="cb">
   <div class="ch"><span class="d8" style="background:var(--warn)"></span> POST /api/posts/schedule</div>
@@ -478,6 +503,98 @@ code.ic{font-family:'IBM Plex Mono',monospace;font-size:11px;background:var(--s2
   res.<span class="fn">status</span>(<span class="num">201</span>).<span class="fn">json</span>({ success: <span class="kw">true</span>, post });
 };</pre>
 </div>
+
+<div class="sl">Backend — Presigned URL Endpoint</div>
+<div class="cb">
+  <div class="ch"><span class="d8" style="background:var(--q1)"></span> POST /api/media/presign — S3 example</div>
+  <pre><span class="kw">import</span> { S3Client, PutObjectCommand } <span class="kw">from</span> <span class="str">'@aws-sdk/client-s3'</span>;
+<span class="kw">import</span> { getSignedUrl } <span class="kw">from</span> <span class="str">'@aws-sdk/s3-request-presigner'</span>;
+<span class="kw">import</span> { randomUUID } <span class="kw">from</span> <span class="str">'crypto'</span>;
+
+<span class="kw">const</span> s3Client = <span class="kw">new</span> <span class="fn">S3Client</span>({
+  region: process.env.AWS_REGION,
+  credentials: {
+    accessKeyId:     process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+  }
+});
+
+<span class="kw">const</span> <span class="fn">getPresignedUrl</span> = <span class="kw">async</span> (req, res) => {
+  <span class="kw">const</span> { filename, mimeType, fileSize } = req.body;
+  <span class="kw">const</span> userId = req.user.userId;
+
+  <span class="cm">// ── 1. Validate file type ────────────────────────────────</span>
+  <span class="kw">const</span> ALLOWED_IMAGE = [<span class="str">'image/jpeg'</span>, <span class="str">'image/png'</span>, <span class="str">'image/webp'</span>, <span class="str">'image/gif'</span>];
+  <span class="kw">const</span> ALLOWED_VIDEO = [<span class="str">'video/mp4'</span>, <span class="str">'video/quicktime'</span>, <span class="str">'video/x-msvideo'</span>];
+  <span class="kw">if</span> (![...ALLOWED_IMAGE, ...ALLOWED_VIDEO].<span class="fn">includes</span>(mimeType))
+    <span class="kw">return</span> res.<span class="fn">status</span>(<span class="num">400</span>).<span class="fn">json</span>({ error: <span class="str">'Invalid file type'</span> });
+
+  <span class="cm">// ── 2. Validate file size (100MB max for frontend upload) ──</span>
+  <span class="kw">const</span> MAX_SIZE = <span class="num">100</span> * <span class="num">1024</span> * <span class="num">1024</span>;  <span class="cm">// 100MB</span>
+  <span class="kw">if</span> (fileSize > MAX_SIZE)
+    <span class="kw">return</span> res.<span class="fn">status</span>(<span class="num">400</span>).<span class="fn">json</span>({ error: <span class="str">'File too large (max 100MB)'</span> });
+
+  <span class="cm">// ── 3. Generate unique file key ────────────────────────────</span>
+  <span class="kw">const</span> ext = filename.<span class="fn">split</span>(<span class="str">'.'</span>).<span class="fn">pop</span>();
+  <span class="kw">const</span> fileKey = <span class="str">`posts/${userId}/${Date.now()}_${randomUUID()}.${ext}`</span>;
+
+  <span class="cm">// ── 4. Create presigned PUT URL (expires in 10 min) ────────</span>
+  <span class="kw">const</span> command = <span class="kw">new</span> <span class="fn">PutObjectCommand</span>({
+    Bucket: process.env.S3_BUCKET,
+    Key: fileKey,
+    ContentType: mimeType,
+    ACL: <span class="str">'public-read'</span>  <span class="cm">// or 'private' if using CloudFront signed URLs</span>
+  });
+
+  <span class="kw">const</span> uploadUrl = <span class="kw">await</span> <span class="fn">getSignedUrl</span>(s3Client, command, { expiresIn: <span class="num">600</span> });
+  <span class="kw">const</span> publicUrl = <span class="str">`https://${process.env.S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileKey}`</span>;
+
+  res.<span class="fn">json</span>({ uploadUrl, fileKey, publicUrl });
+};</pre>
+</div>
+
+<div class="cb">
+  <div class="ch"><span class="d8" style="background:var(--q1)"></span> POST /api/media/presign — Cloudinary example</div>
+  <pre><span class="kw">import</span> { v2 <span class="kw">as</span> cloudinary } <span class="kw">from</span> <span class="str">'cloudinary'</span>;
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key:    process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
+
+<span class="kw">const</span> <span class="fn">getPresignedUrl</span> = <span class="kw">async</span> (req, res) => {
+  <span class="kw">const</span> { filename, mimeType, fileSize } = req.body;
+  <span class="kw">const</span> userId = req.user.userId;
+
+  <span class="cm">// Same validation as S3 example above...</span>
+
+  <span class="cm">// ── Generate unique public_id ──────────────────────────────</span>
+  <span class="kw">const</span> ext = filename.<span class="fn">split</span>(<span class="str">'.'</span>).<span class="fn">pop</span>();
+  <span class="kw">const</span> publicId = <span class="str">`posts/${userId}/${Date.now()}_${randomUUID()}`</span>;
+
+  <span class="cm">// ── Cloudinary unsigned upload preset (requires setup) ─────</span>
+  <span class="cm">// Alternative: use signed upload with timestamp + signature</span>
+  <span class="kw">const</span> timestamp = Math.<span class="fn">round</span>(<span class="obj">Date</span>.<span class="fn">now</span>() / <span class="num">1000</span>);
+  <span class="kw">const</span> signature = cloudinary.utils.<span class="fn">api_sign_request</span>(
+    { timestamp, public_id: publicId },
+    process.env.CLOUDINARY_API_SECRET
+  );
+
+  <span class="cm">// ── Return upload params for frontend ──────────────────────</span>
+  res.<span class="fn">json</span>({
+    uploadUrl: <span class="str">`https://api.cloudinary.com/v1_1/${process.env.CLOUDINARY_CLOUD_NAME}/upload`</span>,
+    uploadParams: {
+      public_id: publicId,
+      timestamp,
+      signature,
+      api_key: process.env.CLOUDINARY_API_KEY
+    },
+    publicUrl: cloudinary.url(publicId, { resource_type: <span class="str">'auto'</span> }),
+    fileKey: publicId
+  });
+};</pre>
+</div>
 </div>
 
 
@@ -516,6 +633,9 @@ code.ic{font-family:'IBM Plex Mono',monospace;font-size:11px;background:var(--s2
 <span class="kw">import</span> { SocialAccount } <span class="kw">from</span> <span class="str">'../models/SocialAccount.js'</span>;
 <span class="kw">import</span> { postToInstagram, postToTwitter, postToFacebook,
           postToLinkedIn, postToYouTube, postToTikTok } <span class="kw">from</span> <span class="str">'./platformAdapters.js'</span>;
+<span class="kw">import</span> { downloadToTemp, uploadTranscoded } <span class="kw">from</span> <span class="str">'../services/storage.js'</span>;
+<span class="kw">import</span> { probeVideo, needsTranscode, transcodeVideo } <span class="kw">from</span> <span class="str">'../services/transcode.js'</span>;
+<span class="kw">import</span> fs <span class="kw">from</span> <span class="str">'fs/promises'</span>;
 
 <span class="cm">// io is the socket.io Server instance — pass it in when starting the worker</span>
 <span class="cm">// In server.js: startWorker(io)  — worker receives io via closure, not via global</span>
@@ -542,17 +662,41 @@ code.ic{font-family:'IBM Plex Mono',monospace;font-size:11px;background:var(--s2
   <span class="kw">await</span> post.<span class="fn">updatePlatformStatus</span>(platform, <span class="str">'processing'</span>);
   io.<span class="fn">to</span>(userId.<span class="fn">toString</span>()).<span class="fn">emit</span>(<span class="str">'post:processing'</span>, { postId, platform });
 
-  <span class="cm">// 4. Call the platform-specific adapter</span>
-  <span class="kw">const</span> handler = PLATFORM_HANDLERS[platform];
-  <span class="kw">const</span> result = <span class="kw">await</span> handler({ post, creds });
+  <span class="cm">// 4. FFmpeg transcoding (videos only) ─────────────────────</span>
+  <span class="kw">let</span> mediaUrl = post.mediaUrl;
+  <span class="kw">let</span> tempTranscoded = <span class="kw">null</span>;
 
-  <span class="cm">// 5. Update status → published</span>
+  <span class="kw">if</span> (post.mediaType === <span class="str">'video'</span>) {
+    <span class="cm">// Download from S3 to /tmp for ffprobe</span>
+    <span class="kw">const</span> tempInput = <span class="kw">await</span> <span class="fn">downloadToTemp</span>(post.mediaUrl, post.fileKey);
+    
+    <span class="cm">// Probe actual video specs</span>
+    <span class="kw">const</span> probe = <span class="kw">await</span> <span class="fn">probeVideo</span>(tempInput);
+    
+    <span class="cm">// Transcode only if specs fail for this platform</span>
+    <span class="kw">if</span> (<span class="fn">needsTranscode</span>(probe, platform)) {
+      tempTranscoded = <span class="kw">await</span> <span class="fn">transcodeVideo</span>(tempInput, platform);
+      <span class="kw">const</span> transcodedUrl = <span class="kw">await</span> <span class="fn">uploadTranscoded</span>(tempTranscoded, post.fileKey, platform);
+      mediaUrl = transcodedUrl;  <span class="cm">// use transcoded URL</span>
+    }
+    
+    <span class="kw">await</span> fs.<span class="fn">unlink</span>(tempInput).<span class="fn">catch</span>(() => {});  <span class="cm">// cleanup</span>
+  }
+
+  <span class="cm">// 5. Call the platform-specific adapter</span>
+  <span class="kw">const</span> handler = PLATFORM_HANDLERS[platform];
+  <span class="kw">const</span> result = <span class="kw">await</span> <span class="fn">handler</span>({ post: { ...post.<span class="fn">toObject</span>(), mediaUrl }, creds });
+
+  <span class="cm">// 6. Cleanup transcoded temp file</span>
+  <span class="kw">if</span> (tempTranscoded) <span class="kw">await</span> fs.<span class="fn">unlink</span>(tempTranscoded).<span class="fn">catch</span>(() => {});
+
+  <span class="cm">// 7. Update status → published</span>
   <span class="kw">await</span> post.<span class="fn">updatePlatformStatus</span>(platform, <span class="str">'published'</span>, {
     platformPostId: result.id,
     platformUrl:    result.url
   });
 
-  <span class="cm">// 6. Emit success notification via WebSocket</span>
+  <span class="cm">// 8. Emit success notification via WebSocket</span>
   io.<span class="fn">to</span>(userId.<span class="fn">toString</span>()).<span class="fn">emit</span>(<span class="str">'post:success'</span>, {
     postId, platform,
     message: <span class="str">`Posted to ${platform} successfully`</span>,

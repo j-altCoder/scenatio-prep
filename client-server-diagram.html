@@ -1,0 +1,1359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Client-Server Model — What Happens When You Go to google.com</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@400;600;700;800&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --panel: #0f0f1a;
+    --border: #1e1e30;
+    --accent1: #00d4ff;
+    --accent2: #7c3aed;
+    --accent3: #10b981;
+    --accent4: #f59e0b;
+    --accent5: #ef4444;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --line: #2a2a40;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+  }
+
+  .header {
+    text-align: center;
+    margin-bottom: 60px;
+    animation: fadeDown 0.6s ease both;
+  }
+
+  .header-tag {
+    font-size: 11px;
+    letter-spacing: 4px;
+    color: var(--accent1);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    opacity: 0.8;
+  }
+
+  .header h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(28px, 4vw, 48px);
+    font-weight: 800;
+    letter-spacing: -1px;
+    background: linear-gradient(135deg, #fff 0%, var(--accent1) 50%, var(--accent2) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1.1;
+  }
+
+  .header p {
+    margin-top: 12px;
+    color: var(--muted);
+    font-size: 13px;
+    letter-spacing: 1px;
+  }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    justify-content: center;
+    margin-bottom: 50px;
+    animation: fadeDown 0.6s 0.1s ease both;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+
+  /* Tab Nav */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    justify-content: center;
+    margin-bottom: 40px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 6px;
+    width: fit-content;
+    margin-left: auto;
+    margin-right: auto;
+    animation: fadeDown 0.6s 0.15s ease both;
+    flex-wrap: wrap;
+  }
+
+  .tab {
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-family: 'Syne', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    transition: all 0.2s;
+    letter-spacing: 0.5px;
+  }
+
+  .tab.active {
+    background: linear-gradient(135deg, var(--accent2), #4f46e5);
+    color: white;
+    box-shadow: 0 0 20px rgba(124,58,237,0.4);
+  }
+
+  .tab:hover:not(.active) { color: var(--text); background: var(--border); }
+
+  .flow { display: none; animation: fadeIn 0.4s ease both; }
+  .flow.active { display: block; }
+
+  /* Step cards */
+  .step {
+    position: relative;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    transition: all 0.2s;
+    cursor: default;
+  }
+
+  .step:hover {
+    border-color: var(--accent1);
+    box-shadow: 0 0 20px rgba(0,212,255,0.1);
+    transform: translateY(-1px);
+  }
+
+  .step-num {
+    position: absolute;
+    top: -10px;
+    left: 14px;
+    background: var(--accent2);
+    color: white;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 4px;
+    letter-spacing: 1px;
+  }
+
+  .step-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 6px;
+    margin-top: 4px;
+  }
+
+  .step-desc {
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  .step-tag {
+    display: inline-block;
+    margin-top: 8px;
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+    font-weight: 500;
+  }
+
+  .tag-security { background: rgba(239,68,68,0.15); color: #fca5a5; border: 1px solid rgba(239,68,68,0.3); }
+  .tag-network { background: rgba(0,212,255,0.15); color: #67e8f9; border: 1px solid rgba(0,212,255,0.3); }
+  .tag-dns { background: rgba(245,158,11,0.15); color: #fcd34d; border: 1px solid rgba(245,158,11,0.3); }
+  .tag-tls { background: rgba(124,58,237,0.15); color: #c4b5fd; border: 1px solid rgba(124,58,237,0.3); }
+  .tag-browser { background: rgba(16,185,129,0.15); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.3); }
+  .tag-http { background: rgba(236,72,153,0.15); color: #f9a8d4; border: 1px solid rgba(236,72,153,0.3); }
+  .tag-perf { background: rgba(249,115,22,0.15); color: #fdba74; border: 1px solid rgba(249,115,22,0.3); }
+
+  /* Full flow layout */
+  .flow-grid {
+    display: grid;
+    grid-template-columns: 1fr 60px 1fr 60px 1fr;
+    gap: 0;
+    align-items: start;
+  }
+
+  .flow-col {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .col-header {
+    text-align: center;
+    padding: 14px 20px;
+    border-radius: 10px 10px 0 0;
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+    border: 1px solid;
+  }
+
+  .col-browser { background: rgba(0,212,255,0.08); border-color: rgba(0,212,255,0.3); color: var(--accent1); }
+  .col-network { background: rgba(245,158,11,0.08); border-color: rgba(245,158,11,0.3); color: var(--accent4); }
+  .col-server { background: rgba(16,185,129,0.08); border-color: rgba(16,185,129,0.3); color: var(--accent3); }
+
+  .arrow-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 70px;
+    gap: 0;
+  }
+
+  .arrow-h {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 46px;
+    margin-bottom: 12px;
+    position: relative;
+  }
+
+  .arrow-h svg { width: 50px; height: 24px; }
+
+  /* Security callout */
+  .security-box {
+    background: rgba(239,68,68,0.06);
+    border: 1px solid rgba(239,68,68,0.25);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-bottom: 16px;
+  }
+
+  .security-box .box-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    color: #fca5a5;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .security-box ul {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .security-box ul li {
+    font-size: 11px;
+    color: var(--muted);
+    padding-left: 16px;
+    position: relative;
+    line-height: 1.5;
+  }
+
+  .security-box ul li::before {
+    content: '▸';
+    position: absolute;
+    left: 0;
+    color: #fca5a5;
+  }
+
+  /* Info boxes */
+  .section-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+  }
+
+  .section-grid-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+  }
+
+  .info-box {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+  }
+
+  .info-box h4 {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+  }
+
+  .info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    gap: 12px;
+  }
+
+  .info-row:last-child { border-bottom: none; }
+
+  .info-key {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+    flex-shrink: 0;
+  }
+
+  .info-val {
+    font-size: 11px;
+    color: var(--text);
+    text-align: right;
+    line-height: 1.4;
+  }
+
+  /* Timeline */
+  .timeline {
+    position: relative;
+    padding-left: 28px;
+  }
+
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 9px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: linear-gradient(to bottom, var(--accent2), var(--accent1), var(--accent3));
+    border-radius: 2px;
+  }
+
+  .tl-step {
+    position: relative;
+    margin-bottom: 16px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+  }
+
+  .tl-step::before {
+    content: '';
+    position: absolute;
+    left: -23px;
+    top: 14px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 2px solid var(--accent2);
+    background: var(--bg);
+  }
+
+  .tl-step.success::before { border-color: var(--accent3); }
+  .tl-step.error::before { border-color: var(--accent5); }
+  .tl-step.warn::before { border-color: var(--accent4); }
+  .tl-step.info::before { border-color: var(--accent1); }
+
+  .tl-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 3px;
+  }
+
+  .tl-desc {
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  /* Token/detail box */
+  .token-diagram {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+
+  .token-diagram h3 {
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 20px;
+    color: var(--text);
+    letter-spacing: 1px;
+  }
+
+  .full-flow {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px;
+    margin-bottom: 20px;
+    overflow-x: auto;
+  }
+
+  .full-flow h3 {
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 24px;
+  }
+
+  .pill {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+
+  .pill-green { background: rgba(16,185,129,0.15); color: var(--accent3); border: 1px solid rgba(16,185,129,0.3); }
+  .pill-red { background: rgba(239,68,68,0.15); color: #fca5a5; border: 1px solid rgba(239,68,68,0.3); }
+  .pill-blue { background: rgba(0,212,255,0.15); color: var(--accent1); border: 1px solid rgba(0,212,255,0.3); }
+  .pill-amber { background: rgba(245,158,11,0.15); color: var(--accent4); border: 1px solid rgba(245,158,11,0.3); }
+  .pill-purple { background: rgba(124,58,237,0.15); color: #a78bfa; border: 1px solid rgba(124,58,237,0.3); }
+
+  /* Comparison table */
+  .compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+    margin-top: 12px;
+  }
+
+  .compare-table th {
+    font-family: 'Syne', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    text-align: left;
+    background: rgba(255,255,255,0.02);
+  }
+
+  .compare-table td {
+    padding: 9px 14px;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    vertical-align: top;
+    line-height: 1.5;
+  }
+
+  .compare-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+  .compare-table .label-col { color: var(--text); font-weight: 500; white-space: nowrap; }
+
+  /* Phase badge */
+  .phase-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'Syne', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 4px 12px;
+    border-radius: 6px;
+    margin-bottom: 16px;
+  }
+
+  /* ── Light theme ── */
+  [data-theme="light"] {
+    --bg: #f5f7fa;
+    --panel: #ffffff;
+    --border: #dde3ee;
+    --accent1: #0284c7;
+    --accent2: #6d28d9;
+    --accent3: #059669;
+    --accent4: #d97706;
+    --accent5: #dc2626;
+    --text: #0f172a;
+    --muted: #64748b;
+    --line: #cbd5e1;
+  }
+  [data-theme="light"] body { background: var(--bg); }
+  [data-theme="light"] body::before { background-image: linear-gradient(rgba(2,132,199,0.05) 1px,transparent 1px),linear-gradient(90deg,rgba(2,132,199,0.05) 1px,transparent 1px); }
+  [data-theme="light"] .tabs { background: #eef2ff; border-color: #dde3ee; }
+  [data-theme="light"] .tab { background: #eef2ff; color: #64748b; }
+  [data-theme="light"] .tab:hover:not(.active) { background: #e0e7ff; color: #0f172a; }
+  [data-theme="light"] .tab.active { background: linear-gradient(135deg,#6d28d9,#4f46e5); box-shadow: 0 0 16px rgba(109,40,217,0.25); }
+  [data-theme="light"] .step { background: #ffffff; border-color: #dde3ee; }
+  [data-theme="light"] .step:hover { border-color: var(--accent1); box-shadow: 0 0 14px rgba(2,132,199,0.12); }
+  [data-theme="light"] .info-box { background: #ffffff; border-color: #dde3ee; }
+  [data-theme="light"] .token-diagram { background: #ffffff; border-color: #dde3ee; }
+  [data-theme="light"] .full-flow { background: #ffffff; border-color: #dde3ee; }
+  [data-theme="light"] .security-box { background: rgba(220,38,38,0.04); border-color: rgba(220,38,38,0.2); }
+  [data-theme="light"] .tl-step { background: #f8fafc; border-color: #dde3ee; }
+  [data-theme="light"] .compare-table th { background: rgba(0,0,0,0.02); }
+  [data-theme="light"] .compare-table tr:hover td { background: rgba(0,0,0,0.02); }
+  [data-theme="light"] pre { color: #475569; background: #f8fafc; }
+
+  /* Theme toggle */
+  .theme-btn {
+    position: fixed; top: 18px; right: 20px; z-index: 9999;
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 16px; border-radius: 20px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--panel);
+    color: var(--text); font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.5px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.2); transition: all 0.2s;
+  }
+  .theme-btn:hover { border-color: var(--accent1); transform: translateY(-1px); }
+
+  @media (max-width: 900px) {
+    .flow-grid { grid-template-columns: 1fr; }
+    .arrow-col { display: none; }
+    .section-grid, .section-grid-3 { grid-template-columns: 1fr; }
+    .theme-btn { top: auto; bottom: 20px; }
+  }
+
+  @keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+<style>
+.backnav{position:sticky;top:0;z-index:200;display:flex;align-items:center;justify-content:space-between;padding:11px 28px;background:rgba(10,10,15,.88);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);gap:16px;}
+[data-theme="light"] .backnav{background:rgba(248,250,252,.92);}
+.backnav-left{display:flex;align-items:center;gap:12px;}
+.backnav-home{display:flex;align-items:center;gap:8px;text-decoration:none;font-family:"JetBrains Mono",monospace;font-size:11px;font-weight:500;letter-spacing:.5px;color:var(--muted);border:1px solid var(--border);padding:6px 14px;border-radius:8px;transition:all .2s;}
+.backnav-home:hover{color:var(--accent1);border-color:var(--accent1);}
+.backnav-sep{color:var(--border);font-size:14px;}
+.backnav-title{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--muted);letter-spacing:.5px;}
+.backnav-pills{display:flex;gap:6px;flex-wrap:wrap;}
+.backnav-pill{text-decoration:none;font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.4px;padding:4px 10px;border-radius:5px;border:1px solid var(--border);color:var(--muted);transition:all .15s;white-space:nowrap;}
+.backnav-pill:hover{border-color:var(--accent1);color:var(--accent1);}
+.backnav-pill.cur{border-color:var(--accent1);color:var(--accent1);background:rgba(0,212,255,.07);}
+@media(max-width:700px){.backnav-pills{display:none;}}
+</style>
+<nav class="backnav">
+  <div class="backnav-left">
+    <a class="backnav-home" href="index.html">← Index</a>
+    <span class="backnav-sep">/</span>
+    <span class="backnav-title">Client-Server Model</span>
+  </div>
+  <div class="backnav-pills">
+    <a class="backnav-pill" href="auth-flow-diagram.html">Auth</a>
+    <a class="backnav-pill" href="oauth-flow-diagram.html">OAuth</a>
+    <a class="backnav-pill" href="rbac-diagram.html">RBAC</a>
+    <a class="backnav-pill" href="scheduler-diagram.html">Scheduler</a>
+    <a class="backnav-pill" href="rag-chat-diagram.html">RAG Chat</a>
+    <a class="backnav-pill cur" href="client-server-diagram.html">Client-Server</a>
+  </div>
+</nav>
+
+<div class="wrapper">
+
+  <div class="header">
+    <div class="header-tag">● Browser · Network · Server · Full Stack</div>
+    <h1>Client-Server Model<br>What Happens at google.com</h1>
+    <p>URL Parsing · DNS · TCP · TLS 1.3 · HTTP/2 · HTML Parsing · Rendering</p>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><span class="legend-dot" style="background:var(--accent1)"></span> Browser</div>
+    <div class="legend-item"><span class="legend-dot" style="background:var(--accent4)"></span> Network / DNS</div>
+    <div class="legend-item"><span class="legend-dot" style="background:var(--accent3)"></span> Server</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#a78bfa"></span> Security</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#f9a8d4"></span> Performance</div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('overview')">Full Flow</button>
+    <button class="tab" onclick="showTab('url')">URL & Typing</button>
+    <button class="tab" onclick="showTab('dns')">DNS Resolution</button>
+    <button class="tab" onclick="showTab('tcp-tls')">TCP & TLS</button>
+    <button class="tab" onclick="showTab('http')">HTTP Request</button>
+    <button class="tab" onclick="showTab('rendering')">HTML Parsing</button>
+    <button class="tab" onclick="showTab('comparison')">HTTP Versions</button>
+  </div>
+
+  <!-- ======================== FULL FLOW ======================== -->
+  <div class="flow active" id="tab-overview">
+    <div class="flow-grid">
+      <!-- Browser col -->
+      <div class="flow-col">
+        <div class="col-header col-browser">⬡ Browser</div>
+
+        <div class="step">
+          <span class="step-num">01</span>
+          <div class="step-title">User Starts Typing</div>
+          <div class="step-desc">First keystroke triggers autocomplete. Browser checks local history, bookmarks, top sites. Some browsers speculatively pre-resolve domains from browsing patterns or send partial query to the default search engine.</div>
+          <span class="step-tag tag-browser">Omnibox / Address Bar</span>
+        </div>
+
+        <div class="step">
+          <span class="step-num">02</span>
+          <div class="step-title">URL Parsing</div>
+          <div class="step-desc">Browser decides: is this a search term or a valid URL? Search terms → routed to default search engine. Valid URL → parsed into protocol, host, path, query. Defaults to https:// if no scheme given.</div>
+          <span class="step-tag tag-browser">URL vs Search Heuristic</span>
+        </div>
+
+        <div class="step">
+          <span class="step-num">03</span>
+          <div class="step-title">DNS Cache Check</div>
+          <div class="step-desc">Before any network call: check browser DNS cache (TTL-gated). Then OS /etc/hosts file. Then OS DNS resolver cache (systemd-resolved on Linux, mDNSResponder on macOS, DNS Client Service on Windows). If found at any layer → skip network DNS query entirely.</div>
+          <span class="step-tag tag-dns">Cache Hierarchy</span>
+        </div>
+
+        <div class="step">
+          <span class="step-num">07</span>
+          <div class="step-title">TCP Handshake (3-Way)</div>
+          <div class="step-desc">SYN → SYN-ACK → ACK. Full-duplex connection established. Browser now has a reliable, ordered byte stream to/from the server. Takes ~1 RTT.</div>
+          <span class="step-tag tag-network">SYN / SYN-ACK / ACK</span>
+        </div>
+
+        <div class="step">
+          <span class="step-num">08</span>
+          <div class="step-title">TLS 1.3 Handshake</div>
+          <div class="step-desc">Diffie-Hellman key exchange → shared symmetric key on both sides. ALPN negotiates protocol (HTTP/1.1, h2, h3). Certificate verified via CA chain. ~1 RTT (TLS 1.3 vs 2 RTT for 1.2).</div>
+          <span class="step-tag tag-tls">Diffie-Hellman · ALPN</span>
+        </div>
+
+        <div class="step">
+          <span class="step-num">09</span>
+          <div class="step-title">Send GET Request</div>
+          <div class="step-desc">Browser sends GET / HTTP/2 with headers: Host, User-Agent, Accept, Accept-Encoding (gzip/br), Cookie, etc. No body on GET requests. HTTP/2 request headers are compressed with HPACK before sending, then the entire frame is encrypted with the session key from TLS.</div>
+          <span class="step-tag tag-http">GET / HTTP/2</span>
+        </div>
+
+        <div class="step">
+          <span class="step-num">11</span>
+          <div class="step-title">HTML Parsing & DOM</div>
+          <div class="step-desc">Parser builds DOM tree incrementally as packets arrive. Parses top-to-bottom. Encounters &lt;script&gt; → synchronously blocks DOM (unless async/defer). CSS → CSSOM. DOM + CSSOM → Render Tree → Layout → Paint → Composite.</div>
+          <span class="step-tag tag-browser">DOM · CSSOM · Render</span>
+        </div>
+      </div>
+
+      <!-- Arrow 1 -->
+      <div class="arrow-col">
+        <div style="height:40px"></div>
+        <div class="arrow-h">
+          <svg viewBox="0 0 50 24"><line x1="4" y1="12" x2="42" y2="12" stroke="#2a2a40" stroke-width="2"/><polygon points="42,7 50,12 42,17" fill="#2a2a40"/></svg>
+        </div>
+        <div style="height:52px"></div>
+        <div class="arrow-h">
+          <svg viewBox="0 0 50 24"><line x1="4" y1="12" x2="42" y2="12" stroke="#2a2a40" stroke-width="2"/><polygon points="42,7 50,12 42,17" fill="#2a2a40"/></svg>
+        </div>
+        <div style="height:52px"></div>
+        <div class="arrow-h">
+          <svg viewBox="0 0 50 24"><line x1="4" y1="12" x2="42" y2="12" stroke="#2a2a40" stroke-width="2"/><polygon points="42,7 50,12 42,17" fill="#2a2a40"/></svg>
+        </div>
+        <div style="height:52px"></div>
+        <div class="arrow-h">
+          <svg viewBox="0 0 50 24"><line x1="42" y1="12" x2="8" y2="12" stroke="#2a2a40" stroke-width="2" stroke-dasharray="4,3"/><polygon points="8,7 0,12 8,17" fill="#2a2a40"/></svg>
+        </div>
+        <div style="height:52px"></div>
+        <div class="arrow-h">
+          <svg viewBox="0 0 50 24"><line x1="42" y1="12" x2="8" y2="12" stroke="#2a2a40" stroke-width="2" stroke-dasharray="4,3"/><polygon points="8,7 0,12 8,17" fill="#2a2a40"/></svg>
+        </div>
+      </div>
+
+      <!-- Network / DNS col -->
+      <div class="flow-col">
+        <div class="col-header col-network">⬡ Network / DNS</div>
+
+        <div class="step">
+          <span class="step-num">04</span>
+          <div class="step-title">DNS Query Sent</div>
+          <div class="step-desc">Browser sends DNS query to configured resolver. Classic DNS uses UDP port 53 (plaintext — ISP can log lookups). Modern browsers with DoH enabled send encrypted queries over HTTPS (port 443) to Cloudflare (1.1.1.1) or Google (8.8.8.8), bypassing ISP DNS entirely. Resolver recursively finds google.com's IP and returns it.</div>
+          <span class="step-tag tag-dns">UDP 53 / DoH / DoT</span>
+        </div>
+
+        <div class="step">
+          <span class="step-num">05</span>
+          <div class="step-title">Recursive DNS Resolution</div>
+          <div class="step-desc">ISP/resolver checks its cache. On miss: queries Root servers (.com TLD), then Google's authoritative nameservers. Returns google.com's A/AAAA record (IP address). Full chain: Root → TLD → Authoritative.</div>
+          <span class="step-tag tag-dns">Root → TLD → Auth NS</span>
+        </div>
+
+        <div class="step">
+          <span class="step-num">06</span>
+          <div class="step-title">IP Packet to Router</div>
+          <div class="step-desc">Browser sends IP packet with google's IP as destination. Router performs NAT: replaces private source IP with public IP, rewrites ports, maintains NAT table for return packets. Packet travels via ISP to CDN/anycast node.</div>
+          <span class="step-tag tag-network">NAT · Routing · CDN</span>
+        </div>
+
+        <div class="step">
+          <span class="step-num">—</span>
+          <div class="step-title">CDN / Anycast Edge</div>
+          <div class="step-desc">Google's BGP anycast routes to nearest edge PoP. For static assets, CDN responds directly. For HTML, may proxy to origin with HTTP/2 or QUIC (HTTP/3). Reduces RTT dramatically for global users.</div>
+          <span class="step-tag tag-perf">BGP Anycast · Edge PoP</span>
+        </div>
+
+        <div class="step">
+          <span class="step-num">10</span>
+          <div class="step-title">HTTP Response Sent</div>
+          <div class="step-desc">Server sends 200 OK with Content-Type: text/html. Transfers with chunked encoding. Assets may be HTTP/2 pushed. Body compressed (gzip or Brotli). Response headers set Cache-Control, Content-Security-Policy, HSTS.</div>
+          <span class="step-tag tag-http">200 OK · gzip/br</span>
+        </div>
+      </div>
+
+      <!-- Arrow 2 -->
+      <div class="arrow-col">
+        <div style="height:36px"></div>
+        <div class="arrow-h">
+          <svg viewBox="0 0 50 24"><line x1="4" y1="12" x2="42" y2="12" stroke="#2a2a40" stroke-width="2"/><polygon points="42,7 50,12 42,17" fill="#2a2a40"/></svg>
+        </div>
+        <div style="height:72px"></div>
+        <div class="arrow-h">
+          <svg viewBox="0 0 50 24"><line x1="42" y1="12" x2="8" y2="12" stroke="#2a2a40" stroke-width="2" stroke-dasharray="4,3"/><polygon points="8,7 0,12 8,17" fill="#2a2a40"/></svg>
+        </div>
+      </div>
+
+      <!-- Server col -->
+      <div class="flow-col">
+        <div class="col-header col-server">⬡ Server / Origin</div>
+
+        <div class="step">
+          <span class="step-num">—</span>
+          <div class="step-title">Protocol Negotiation</div>
+          <div class="step-desc">ALPN in the TLS ClientHello negotiates HTTP/1.1 or h2 (HTTP/2) for the current connection. HTTP/3 is NOT negotiated via ALPN on first visit — the server advertises h3 support via the <code>Alt-Svc: h3=":443"</code> response header, and the browser upgrades to QUIC on a subsequent request. HTTP/2 = same TCP connection, multiplexed streams.</div>
+          <span class="step-tag tag-tls">ALPN · HTTP/2 · QUIC</span>
+        </div>
+
+        <div class="step">
+          <span class="step-num">—</span>
+          <div class="step-title">Request Processing</div>
+          <div class="step-desc">Load balancer distributes to server farm. Web server (nginx/GFE) handles static, app server handles dynamic. For google.com: highly optimized — pre-rendered HTML, CDN-served resources, regional origin servers.</div>
+          <span class="step-tag tag-network">Load Balancer · nginx</span>
+        </div>
+
+        <div class="step">
+          <span class="step-num">—</span>
+          <div class="step-title">Response Assembly</div>
+          <div class="step-desc">HTML document built (or served from cache). Headers set: HSTS (force HTTPS), CSP (script-src), X-Frame-Options, Cache-Control. HTTP/2 Server Push can proactively send CSS/JS before browser requests them.</div>
+          <span class="step-tag tag-http">HSTS · CSP · HTTP/2 Push</span>
+        </div>
+
+        <div class="step">
+          <span class="step-num">—</span>
+          <div class="step-title">Cache Control</div>
+          <div class="step-desc">HTML: Cache-Control: no-cache (must revalidate). Static assets (JS/CSS/images): max-age=31536000 immutable with content hash in filename. ETags for conditional GETs. CDN: s-maxage directive.</div>
+          <span class="step-tag tag-perf">Cache-Control · ETag</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================== URL & TYPING ======================== -->
+  <div class="flow" id="tab-url">
+    <div class="section-grid" style="margin-bottom:20px">
+      <div class="token-diagram">
+        <h3>🔤 What Happens When You Type</h3>
+        <div style="display:flex;flex-direction:column;gap:0;position:relative;padding-left:20px;">
+          <div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:linear-gradient(to bottom,var(--accent2),var(--accent1),var(--accent3));border-radius:2px;"></div>
+          <div class="tl-step info">
+            <div class="tl-title">First Keystroke — Autocomplete Fires</div>
+            <div class="tl-desc">Browser's omnibox monitors every keystroke. Queries local history, bookmarks, and cached top sites simultaneously. Chrome's suggest service may send partial query to Google's Suggest API if "search suggestions" are enabled. You might see "google.com" suggested before finishing typing.</div>
+          </div>
+          <div class="tl-step info">
+            <div class="tl-title">Search Term vs. Valid URL Heuristic</div>
+            <div class="tl-desc">No dots + no slashes → likely a search term (e.g., "google") — sent to default search engine as ?q=google. Contains a dot or starts with known TLD → treated as URL attempt. Explicit https:// prefix → always treated as URL. "google.com" → valid URL. "google" alone → search query.</div>
+          </div>
+          <div class="tl-step warn">
+            <div class="tl-title">Protocol Defaulting</div>
+            <div class="tl-desc">If no scheme specified: browser tries https:// first (most modern browsers default to HTTPS). If HTTPS fails and no HSTS preload, falls back to http://. Google has HSTS preloaded — so browser will always use https:// even on first ever visit.</div>
+          </div>
+          <div class="tl-step success">
+            <div class="tl-title">URL Parsed into Components</div>
+            <div class="tl-desc">https://google.com/search?q=hello → Protocol: https, Host: google.com, Port: 443 (implied), Path: /search, Query: q=hello, Fragment: (none). Port 80 for http (unencrypted), port 443 for https (encrypted). Custom ports can be specified explicitly: example.com:8080.</div>
+          </div>
+          <div class="tl-step">
+            <div class="tl-title">Speculative Pre-connect</div>
+            <div class="tl-desc">Chrome and Edge speculatively pre-resolve DNS and even pre-connect (TCP+TLS) to the top omnibox suggestion while you're still typing. By the time you press Enter, the connection may already be established — dramatically reducing perceived latency.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="info-box">
+        <h4><span class="dot" style="background:var(--accent1)"></span> Protocol Ports Reference</h4>
+        <div class="info-row"><span class="info-key">HTTP</span><span class="info-val"><span class="pill pill-red">Port 80</span> Unencrypted</span></div>
+        <div class="info-row"><span class="info-key">HTTPS</span><span class="info-val"><span class="pill pill-green">Port 443</span> TLS Encrypted</span></div>
+        <div class="info-row"><span class="info-key">FTP</span><span class="info-val">Port 21 — File Transfer</span></div>
+        <div class="info-row"><span class="info-key">SSH</span><span class="info-val">Port 22 — Secure Shell</span></div>
+        <div class="info-row"><span class="info-key">DNS</span><span class="info-val">Port 53 UDP/TCP</span></div>
+        <div class="info-row"><span class="info-key">DoH</span><span class="info-val">Port 443 — DNS over HTTPS</span></div>
+        <div class="info-row"><span class="info-key">DoT</span><span class="info-val">Port 853 — DNS over TLS</span></div>
+        <div class="info-row"><span class="info-key">HTTP/3</span><span class="info-val">UDP 443 via QUIC</span></div>
+        <br>
+        <h4 style="margin-bottom:14px"><span class="dot" style="background:var(--accent4)"></span> HSTS — Why Always HTTPS</h4>
+        <div class="info-row"><span class="info-key">HSTS Header</span><span class="info-val">Strict-Transport-Security: max-age=31536000</span></div>
+        <div class="info-row"><span class="info-key">Preload List</span><span class="info-val">Browsers ship with hardcoded HSTS domains</span></div>
+        <div class="info-row"><span class="info-key">Effect</span><span class="info-val">Browser refuses http:// entirely — no fallback</span></div>
+        <div class="info-row"><span class="info-key">google.com</span><span class="info-val"><span class="pill pill-green">HSTS Preloaded</span> Always HTTPS</span></div>
+      </div>
+    </div>
+
+    <div class="security-box">
+      <div class="box-title">⚡ Speculative Browser Optimizations</div>
+      <ul>
+        <li><strong>DNS Prefetch:</strong> &lt;link rel="dns-prefetch"&gt; — browser resolves DNS for a domain before the user navigates there.</li>
+        <li><strong>Preconnect:</strong> &lt;link rel="preconnect"&gt; — full TCP + TLS handshake done speculatively for critical origins.</li>
+        <li><strong>Prefetch:</strong> &lt;link rel="prefetch"&gt; — fetch and cache a resource the user is likely to need next.</li>
+        <li><strong>Prerender:</strong> &lt;link rel="prerender"&gt; — render an entire page in a hidden tab (Chrome only). Near-instant navigation.</li>
+        <li><strong>Omnibox preconnect:</strong> Chrome automatically preconnects to the top URL suggestion before Enter is pressed.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ======================== DNS ======================== -->
+  <div class="flow" id="tab-dns">
+    <div class="token-diagram" style="margin-bottom:20px">
+      <h3>🌐 DNS Resolution — Full Lookup Chain</h3>
+      <div style="display:flex;flex-direction:column;gap:0;position:relative;padding-left:20px;">
+        <div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:linear-gradient(to bottom,var(--accent2),var(--accent4),var(--accent3));border-radius:2px;"></div>
+
+        <div class="tl-step success">
+          <div class="tl-title">Step 1 — Browser DNS Cache</div>
+          <div class="tl-desc">Browser maintains its own DNS cache with TTL. Chrome: chrome://net-internals/#dns. If google.com was visited recently and TTL hasn't expired → IP returned immediately. No network call needed.</div>
+        </div>
+
+        <div class="tl-step success">
+          <div class="tl-title">Step 2 — OS Hosts File</div>
+          <div class="tl-desc">/etc/hosts (Linux/macOS) or C:\Windows\System32\drivers\etc\hosts (Windows). Custom mappings override DNS. Developers use this to override google.com locally. Checked before any DNS query.</div>
+        </div>
+
+        <div class="tl-step success">
+          <div class="tl-title">Step 3 — OS DNS Cache</div>
+          <div class="tl-desc">Modern Linux: systemd-resolved handles OS-level DNS caching (check with <code>resolvectl status</code>). macOS: mDNSResponder. Windows: DNS Client Service (dnscache). Shared across all apps on the machine. nscd (Name Service Cache Daemon) is an older Linux caching layer, largely replaced by systemd-resolved.</div>
+        </div>
+
+        <div class="tl-step warn">
+          <div class="tl-title">Step 4 — Resolver Query (DoH / Classic DNS)</div>
+          <div class="tl-desc">Cache miss → send query to configured DNS resolver. Classic: UDP port 53 (plaintext — ISP can see what you're looking up). DNS-over-HTTPS (DoH): encrypted query over HTTPS to 1.1.1.1 or 8.8.8.8. DNS-over-TLS (DoT): encrypted query over TLS port 853.</div>
+        </div>
+
+        <div class="tl-step warn">
+          <div class="tl-title">Step 5 — Recursive Resolution</div>
+          <div class="tl-desc">Resolver checks its own cache. On miss: starts recursive lookup. There are 13 root server <em>addresses</em> (a–m.root-servers.net), but hundreds of physical servers worldwide via anycast. Query the appropriate root → returns .com TLD nameserver addresses. Queries .com TLD server → returns Google's authoritative nameservers (ns1.google.com, etc.). Queries Google's authoritative NS → returns A record (IPv4) or AAAA record (IPv6) for google.com.</div>
+        </div>
+
+        <div class="tl-step success">
+          <div class="tl-title">Step 6 — IP Returned to Browser</div>
+          <div class="tl-desc">Resolver caches the result (per TTL). Returns IP (e.g., 142.250.80.46) to OS, OS caches it, browser caches it, and proceeds to TCP connection. google.com uses anycast — same IP routes to nearest Google PoP.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-grid">
+      <div class="info-box">
+        <h4><span class="dot" style="background:var(--accent4)"></span> DNS Record Types</h4>
+        <div class="info-row"><span class="info-key">A</span><span class="info-val">IPv4 address (32-bit)</span></div>
+        <div class="info-row"><span class="info-key">AAAA</span><span class="info-val">IPv6 address (128-bit)</span></div>
+        <div class="info-row"><span class="info-key">CNAME</span><span class="info-val">Alias to another domain name</span></div>
+        <div class="info-row"><span class="info-key">MX</span><span class="info-val">Mail exchange server</span></div>
+        <div class="info-row"><span class="info-key">TXT</span><span class="info-val">Arbitrary text (SPF, DKIM, domain verification)</span></div>
+        <div class="info-row"><span class="info-key">NS</span><span class="info-val">Authoritative nameserver for domain</span></div>
+        <div class="info-row"><span class="info-key">SOA</span><span class="info-val">Start of Authority — zone metadata</span></div>
+        <div class="info-row"><span class="info-key">SRV</span><span class="info-val">Service location (host + port)</span></div>
+        <div class="info-row"><span class="info-key">PTR</span><span class="info-val">Reverse DNS — IP → domain</span></div>
+      </div>
+
+      <div class="info-box">
+        <h4><span class="dot" style="background:#a78bfa)"></span> Privacy — Classic vs. Encrypted DNS</h4>
+        <div class="info-row"><span class="info-key">Classic DNS</span><span class="info-val"><span class="pill pill-red">Plaintext</span> ISP can log every lookup</span></div>
+        <div class="info-row"><span class="info-key">DoH</span><span class="info-val"><span class="pill pill-green">Encrypted</span> Looks like HTTPS traffic</span></div>
+        <div class="info-row"><span class="info-key">DoT</span><span class="info-val"><span class="pill pill-green">Encrypted</span> Port 853 — visible but encrypted</span></div>
+        <div class="info-row"><span class="info-key">DNSSEC</span><span class="info-val">Signs DNS records — prevents spoofing but doesn't encrypt</span></div>
+        <div class="info-row"><span class="info-key">Chrome DoH</span><span class="info-val">Uses OS resolver's DoH if supported, else Cloudflare/Google</span></div>
+        <div class="info-row"><span class="info-key">Anycast</span><span class="info-val">1.1.1.1 routes to nearest Cloudflare PoP — same IP globally</span></div>
+        <div class="info-row"><span class="info-key">TTL</span><span class="info-val">google.com A record TTL: 300s (5 min)</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================== TCP & TLS ======================== -->
+  <div class="flow" id="tab-tcp-tls">
+    <div class="section-grid" style="margin-bottom:20px">
+      <div class="token-diagram">
+        <h3>🤝 TCP 3-Way Handshake</h3>
+        <div style="display:flex;flex-direction:column;gap:0;position:relative;padding-left:20px;">
+          <div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent1);border-radius:2px;"></div>
+          <div class="tl-step info">
+            <div class="tl-title">1 · SYN — Client Initiates</div>
+            <div class="tl-desc">Client picks a random initial sequence number (ISN). Sends TCP segment with SYN flag. Tells server "I want to connect, my sequence starts at X." Server port: 443.</div>
+          </div>
+          <div class="tl-step info">
+            <div class="tl-title">2 · SYN-ACK — Server Responds</div>
+            <div class="tl-desc">Server acknowledges client's SYN (ACK = client ISN + 1). Server picks its own ISN, sends its SYN. "OK, I received X, my sequence starts at Y." Both sides now know each other's starting sequence numbers.</div>
+          </div>
+          <div class="tl-step success">
+            <div class="tl-title">3 · ACK — Connection Established</div>
+            <div class="tl-desc">Client sends final ACK (ACK = server ISN + 1). Full duplex connection established. Both sides can now send and receive reliably ordered data. Total cost: 1 full round-trip (RTT).</div>
+          </div>
+          <div class="tl-step">
+            <div class="tl-title">Why TCP? Reliability Guarantees</div>
+            <div class="tl-desc">TCP ensures: ordered delivery (sequence numbers), reliable delivery (ACK + retransmit on loss), flow control (receiver window), congestion control (slow start, AIMD). Unlike UDP which is fire-and-forget.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="token-diagram">
+        <h3>🔐 TLS 1.3 Handshake</h3>
+        <div style="display:flex;flex-direction:column;gap:0;position:relative;padding-left:20px;">
+          <div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent2);border-radius:2px;"></div>
+          <div class="tl-step">
+            <div class="tl-title">1 · ClientHello</div>
+            <div class="tl-desc">Client sends: supported cipher suites, TLS version, key share (Diffie-Hellman public value), SNI (Server Name Indication — which domain), ALPN (desired protocols: h2, http/1.1).</div>
+          </div>
+          <div class="tl-step">
+            <div class="tl-title">2 · ServerHello + Certificate</div>
+            <div class="tl-desc">Server responds with its chosen cipher suite and DH public key share. Then sends Certificate (encrypted in TLS 1.3, unlike 1.2), CertificateVerify (proving it holds the private key), and Finished — all in one flight. Client can already send application data on the next flight. Total: 1 RTT for a fresh handshake (vs 2 RTT in TLS 1.2).</div>
+          </div>
+          <div class="tl-step warn">
+            <div class="tl-title">3 · Key Derivation — DH Magic</div>
+            <div class="tl-desc">Both client and server independently compute the same shared secret via Diffie-Hellman: client computes g^(ab) mod p using server's public value; server computes the same using client's public value. Result is identical on both sides. The private exponents (a, b) never travel the wire — only g^a and g^b do. Perfect Forward Secrecy: ephemeral keys per session, so past sessions can't be decrypted even if long-term keys are later compromised.</div>
+          </div>
+          <div class="tl-step success">
+            <div class="tl-title">4 · Encrypted Channel Ready</div>
+            <div class="tl-desc">Both sides derive symmetric session key from DH shared secret + random nonces. All subsequent data encrypted with AES-GCM or ChaCha20-Poly1305. ALPN confirms h2 (HTTP/2). Ready to send HTTP request.</div>
+          </div>
+          <div class="tl-step success">
+            <div class="tl-title">0-RTT Resumption (Session Tickets)</div>
+            <div class="tl-desc">If client visited before and has a session ticket: can send data on the FIRST packet (0-RTT). Server decrypts with ticket key, no handshake wait. Replays are a risk — 0-RTT limited to safe/idempotent requests (GETs only).</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-grid-3">
+      <div class="info-box">
+        <h4><span class="dot" style="background:#a78bfa"></span> TLS 1.3 vs 1.2</h4>
+        <div class="info-row"><span class="info-key">Handshake RTT</span><span class="info-val">TLS 1.3: <span class="pill pill-green">1 RTT</span><br>TLS 1.2: <span class="pill pill-red">2 RTT</span></span></div>
+        <div class="info-row"><span class="info-key">Resumption</span><span class="info-val">TLS 1.3: <span class="pill pill-green">0-RTT</span><br>TLS 1.2: 1 RTT</span></div>
+        <div class="info-row"><span class="info-key">Forward Secrecy</span><span class="info-val">TLS 1.3: Always<br>TLS 1.2: Optional</span></div>
+        <div class="info-row"><span class="info-key">Weak Ciphers</span><span class="info-val">TLS 1.3: Removed<br>TLS 1.2: Some allowed</span></div>
+        <div class="info-row"><span class="info-key">Cipher Suites</span><span class="info-val">TLS 1.3: 5 total<br>TLS 1.2: 37+</span></div>
+      </div>
+      <div class="info-box">
+        <h4><span class="dot" style="background:var(--accent1)"></span> ALPN — Protocol Negotiation</h4>
+        <div class="info-row"><span class="info-key">What</span><span class="info-val">TLS extension to agree on app protocol in the handshake</span></div>
+        <div class="info-row"><span class="info-key">Avoids</span><span class="info-val">Extra round-trip for protocol upgrade after connection</span></div>
+        <div class="info-row"><span class="info-key">HTTP/1.1</span><span class="info-val">One request per TCP connection (without keep-alive)</span></div>
+        <div class="info-row"><span class="info-key">h2</span><span class="info-val">HTTP/2 — negotiated via ALPN in TLS handshake</span></div>
+        <div class="info-row"><span class="info-key">h3</span><span class="info-val">NOT negotiated via ALPN — advertised via Alt-Svc response header after first HTTP/2 response</span></div>
+        <div class="info-row"><span class="info-key">Alt-Svc Header</span><span class="info-val">Alt-Svc: h3=":443"; ma=2592000 — browser upgrades to QUIC on next visit</span></div>
+      </div>
+      <div class="info-box">
+        <h4><span class="dot" style="background:var(--accent3)"></span> Certificate Verification</h4>
+        <div class="info-row"><span class="info-key">CA Chain</span><span class="info-val">Root CA → Intermediate CA → Leaf cert</span></div>
+        <div class="info-row"><span class="info-key">Trusted Roots</span><span class="info-val">Browser/OS ships ~150 trusted root CAs</span></div>
+        <div class="info-row"><span class="info-key">CT Logs</span><span class="info-val">Certificate Transparency — all certs publicly logged</span></div>
+        <div class="info-row"><span class="info-key">OCSP Stapling</span><span class="info-val">Server attaches revocation proof — faster than client OCSP query</span></div>
+        <div class="info-row"><span class="info-key">SANs</span><span class="info-val">Subject Alternative Names cover *.google.com, google.com, etc.</span></div>
+        <div class="info-row"><span class="info-key">Pinning</span><span class="info-val">Chrome pins Google certs — rejects unexpected CAs for google.com</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================== HTTP REQUEST ======================== -->
+  <div class="flow" id="tab-http">
+    <div class="token-diagram" style="margin-bottom:20px">
+      <h3>📡 The GET Request — What's Inside</h3>
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:16px;overflow-x:auto;">
+        <pre style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);line-height:1.8;margin:0;">
+<span style="color:var(--accent1)">GET</span> <span style="color:#6ee7b7">/</span> <span style="color:#c4b5fd">HTTP/2</span>
+<span style="color:var(--accent4)">Host:</span>             google.com
+<span style="color:var(--accent4)">User-Agent:</span>       Mozilla/5.0 (... Chrome/120.0.0.0)
+<span style="color:var(--accent4)">Accept:</span>           text/html,application/xhtml+xml,*/*;q=0.9
+<span style="color:var(--accent4)">Accept-Encoding:</span>  gzip, deflate, br   <span style="color:var(--muted)">← Brotli preferred</span>
+<span style="color:var(--accent4)">Accept-Language:</span>  en-US,en;q=0.9
+<span style="color:var(--accent4)">Connection:</span>       keep-alive           <span style="color:var(--muted)">← reuse TCP connection</span>
+<span style="color:var(--accent4)">Sec-Fetch-Dest:</span>   document
+<span style="color:var(--accent4)">Sec-Fetch-Mode:</span>   navigate
+<span style="color:var(--accent4)">Sec-Fetch-Site:</span>   none
+<span style="color:var(--accent4)">Cookie:</span>           CONSENT=xxx; SID=xxx  <span style="color:var(--muted)">← if previously visited</span>
+<span style="color:var(--accent4)">Cache-Control:</span>    max-age=0             <span style="color:var(--muted)">← force revalidation</span>
+
+<span style="color:var(--muted)">// No body on GET — body only present on POST/PUT/PATCH</span>
+<span style="color:var(--muted)">// All headers + data compressed with HPACK (HTTP/2 header compression)</span>
+<span style="color:var(--muted)">// Then encrypted with session key established in TLS handshake</span>
+        </pre>
+      </div>
+    </div>
+
+    <div class="section-grid">
+      <div class="token-diagram">
+        <h3>📥 HTTP Response Headers</h3>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:16px;overflow-x:auto;">
+          <pre style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);line-height:1.8;margin:0;">
+<span style="color:var(--accent3)">HTTP/2 200 OK</span>
+<span style="color:var(--accent4)">content-type:</span>                 text/html; charset=UTF-8
+<span style="color:var(--accent4)">content-encoding:</span>             br   <span style="color:var(--muted)">← Brotli compressed</span>
+<span style="color:var(--accent4)">cache-control:</span>                no-cache, no-store  <span style="color:var(--muted)">← HTML</span>
+<span style="color:var(--accent4)">strict-transport-security:</span>    max-age=31536000; includeSubDomains; preload
+<span style="color:var(--accent4)">content-security-policy:</span>      script-src 'nonce-...' ...
+<span style="color:var(--accent4)">x-frame-options:</span>              SAMEORIGIN
+<span style="color:var(--accent4)">x-xss-protection:</span>             0
+<span style="color:var(--accent4)">referrer-policy:</span>              origin
+<span style="color:var(--accent4)">permissions-policy:</span>           geolocation=(), camera=()
+<span style="color:var(--accent4)">transfer-encoding:</span>            chunked  <span style="color:var(--muted)">← streaming</span>
+<span style="color:var(--accent4)">server:</span>                       gws  <span style="color:var(--muted)">← Google Web Server</span>
+          </pre>
+        </div>
+      </div>
+
+      <div class="info-box">
+        <h4><span class="dot" style="background:#a78bfa"></span> HTTP Methods Reference</h4>
+        <div class="info-row"><span class="info-key">GET</span><span class="info-val">Read resource. No body. Cacheable. Idempotent.</span></div>
+        <div class="info-row"><span class="info-key">POST</span><span class="info-val">Create resource. Has body. Not idempotent.</span></div>
+        <div class="info-row"><span class="info-key">PUT</span><span class="info-val">Replace resource entirely. Idempotent.</span></div>
+        <div class="info-row"><span class="info-key">PATCH</span><span class="info-val">Partial update. Not necessarily idempotent.</span></div>
+        <div class="info-row"><span class="info-key">DELETE</span><span class="info-val">Remove resource. Idempotent.</span></div>
+        <div class="info-row"><span class="info-key">HEAD</span><span class="info-val">GET but no response body — headers only.</span></div>
+        <div class="info-row"><span class="info-key">OPTIONS</span><span class="info-val">CORS preflight — what methods are allowed?</span></div>
+        <br>
+        <h4 style="margin-bottom:14px"><span class="dot" style="background:var(--accent5)"></span> Status Codes</h4>
+        <div class="info-row"><span class="info-key">2xx</span><span class="info-val">Success — 200 OK, 201 Created, 204 No Content</span></div>
+        <div class="info-row"><span class="info-key">3xx</span><span class="info-val">Redirect — 301 Permanent, 302 Temp, 304 Not Modified</span></div>
+        <div class="info-row"><span class="info-key">4xx</span><span class="info-val">Client Error — 400 Bad Request, 401 Unauth, 404 Not Found</span></div>
+        <div class="info-row"><span class="info-key">5xx</span><span class="info-val">Server Error — 500 Internal, 502 Bad Gateway, 503 Unavailable</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================== HTML PARSING ======================== -->
+  <div class="flow" id="tab-rendering">
+    <div class="token-diagram" style="margin-bottom:20px">
+      <h3>🧱 Browser Rendering Pipeline</h3>
+      <div style="display:flex;flex-direction:column;gap:0;position:relative;padding-left:20px;">
+        <div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:linear-gradient(to bottom,var(--accent1),var(--accent2),var(--accent3));border-radius:2px;"></div>
+
+        <div class="tl-step info">
+          <div class="tl-title">1 · HTML Parser → DOM Tree</div>
+          <div class="tl-desc">Bytes arrive on the wire → Characters → Tokens → DOM nodes → DOM tree. Parsing is incremental — starts as first bytes arrive, doesn't wait for full document. Parses top-to-bottom. HTML is fault-tolerant — missing tags auto-corrected.</div>
+        </div>
+
+        <div class="tl-step error">
+          <div class="tl-title">2 · Script Tags BLOCK the Parser</div>
+          <div class="tl-desc">Browser hits &lt;script src="app.js"&gt; (no async/defer) → STOPS DOM parsing. Fetches script, executes it, then resumes. Why? JS can call document.write() which modifies the document. This is why scripts are placed at bottom of body, or use async/defer. Blocks Time To First Contentful Paint.</div>
+        </div>
+
+        <div class="tl-step warn">
+          <div class="tl-title">3 · async vs defer vs normal Script</div>
+          <div class="tl-desc">Normal: fetch + execute blocks parser. defer: fetch in parallel, execute after DOM complete (in order). async: fetch in parallel, execute immediately when ready (out of order — for independent scripts like analytics). Module scripts are deferred by default.</div>
+        </div>
+
+        <div class="tl-step">
+          <div class="tl-title">4 · CSS Parser → CSSOM</div>
+          <div class="tl-desc">CSS files fetched in parallel. CSS is render-blocking — browser won't paint until CSSOM is complete (painting without CSS = flash of unstyled content). CSS preload: &lt;link rel="preload" as="style"&gt; fetches early but doesn't block.</div>
+        </div>
+
+        <div class="tl-step success">
+          <div class="tl-title">5 · DOM + CSSOM → Render Tree</div>
+          <div class="tl-desc">Render tree combines DOM + CSSOM. Excludes non-visual nodes (head, display:none). Each node has computed styles. Only nodes that will be painted are included.</div>
+        </div>
+
+        <div class="tl-step success">
+          <div class="tl-title">6 · Layout (Reflow)</div>
+          <div class="tl-desc">Calculate exact position and size of every render tree node. Result: box model geometry for each element. Triggered again by JS that changes dimensions (offsetWidth, scrollTop, etc.) — can cause expensive "layout thrashing" if interleaved with JS writes.</div>
+        </div>
+
+        <div class="tl-step success">
+          <div class="tl-title">7 · Paint</div>
+          <div class="tl-desc">Convert layout tree to draw calls. Text, colors, images, borders, shadows. Split into layers (compositing layers for transforms, opacity, will-change). Each layer painted independently.</div>
+        </div>
+
+        <div class="tl-step success">
+          <div class="tl-title">8 · Composite — GPU to Screen</div>
+          <div class="tl-desc">Compositor thread sends layers to GPU. GPU composites layers into final frame. Transforms and opacity can be handled entirely on GPU without layout/paint (no main thread involvement). This is why CSS animations on transform/opacity are smooth at 60fps.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-grid">
+      <div class="info-box">
+        <h4><span class="dot" style="background:var(--accent1)"></span> Key Performance Metrics</h4>
+        <div class="info-row"><span class="info-key">TTFB</span><span class="info-val">Time To First Byte — server response latency</span></div>
+        <div class="info-row"><span class="info-key">FCP</span><span class="info-val">First Contentful Paint — first text/image visible</span></div>
+        <div class="info-row"><span class="info-key">LCP</span><span class="info-val">Largest Contentful Paint — Core Web Vital (&lt;2.5s good)</span></div>
+        <div class="info-row"><span class="info-key">CLS</span><span class="info-val">Cumulative Layout Shift — visual stability (0.1 good)</span></div>
+        <div class="info-row"><span class="info-key">INP</span><span class="info-val">Interaction to Next Paint — responsiveness (&lt;200ms)</span></div>
+        <div class="info-row"><span class="info-key">TTI</span><span class="info-val">Time To Interactive — fully usable</span></div>
+        <div class="info-row"><span class="info-key">TBT</span><span class="info-val">Total Blocking Time — main thread blocked</span></div>
+      </div>
+
+      <div class="security-box" style="margin:0; align-self:start">
+        <div class="box-title">💡 Script Loading Best Practices</div>
+        <ul>
+          <li>Place &lt;script&gt; at end of &lt;body&gt; — DOM already built before JS runs</li>
+          <li>Use <strong>defer</strong> for app scripts that need DOM — fetches in parallel, runs after parsing</li>
+          <li>Use <strong>async</strong> for independent scripts (analytics, ads) — doesn't care about DOM order</li>
+          <li>Use <strong>type="module"</strong> — deferred by default, supports import/export</li>
+          <li>Inline critical CSS for above-the-fold content — eliminates render-blocking request</li>
+          <li>Preload critical assets: &lt;link rel="preload" as="font"&gt;</li>
+          <li>Avoid layout thrashing: batch DOM reads before writes in JS</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================== HTTP VERSION COMPARISON ======================== -->
+  <div class="flow" id="tab-comparison">
+    <div class="full-flow" style="margin-bottom:20px">
+      <h3>HTTP Version Comparison</h3>
+      <div style="overflow-x:auto;">
+        <table class="compare-table">
+          <thead>
+            <tr>
+              <th>Feature</th>
+              <th>HTTP/1.0</th>
+              <th>HTTP/1.1</th>
+              <th>HTTP/2</th>
+              <th>HTTP/3</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="label-col">Transport</td>
+              <td>TCP</td>
+              <td>TCP</td>
+              <td>TCP</td>
+              <td><span class="pill pill-green">QUIC (UDP)</span></td>
+            </tr>
+            <tr>
+              <td class="label-col">Connections</td>
+              <td>New connection per request by default. Keep-alive supported via <code>Connection: keep-alive</code> header but non-standard</td>
+              <td>Keep-alive, but 1 req at a time per conn</td>
+              <td><span class="pill pill-green">1 conn, multiplexed streams</span></td>
+              <td><span class="pill pill-green">1 conn, independent streams</span></td>
+            </tr>
+            <tr>
+              <td class="label-col">Head-of-Line Blocking</td>
+              <td>Yes (TCP + app)</td>
+              <td>Yes (app level — one req per conn)</td>
+              <td>Partial — TCP HOL still exists</td>
+              <td><span class="pill pill-green">No — QUIC streams independent</span></td>
+            </tr>
+            <tr>
+              <td class="label-col">Header Compression</td>
+              <td>None</td>
+              <td>None</td>
+              <td><span class="pill pill-blue">HPACK</span></td>
+              <td><span class="pill pill-blue">QPACK</span></td>
+            </tr>
+            <tr>
+              <td class="label-col">Server Push</td>
+              <td>No</td>
+              <td>No</td>
+              <td>Yes (spec) — largely abandoned in practice</td>
+              <td><span class="pill pill-red">Removed</span> — deprecated RFC 9297</td>
+            </tr>
+            <tr>
+              <td class="label-col">TLS</td>
+              <td>Optional</td>
+              <td>Optional</td>
+              <td>Required in practice (browsers enforce)</td>
+              <td><span class="pill pill-green">Built-in to QUIC</span></td>
+            </tr>
+            <tr>
+              <td class="label-col">Handshake RTT</td>
+              <td>TCP: 1 RTT</td>
+              <td>TCP: 1 RTT + TLS: 2 RTT</td>
+              <td>TCP: 1 RTT + TLS: 1 RTT (1.3)</td>
+              <td><span class="pill pill-green">1 RTT (0-RTT resume)</span></td>
+            </tr>
+            <tr>
+              <td class="label-col">Connection Migration</td>
+              <td>No</td>
+              <td>No</td>
+              <td>No — IP change = reconnect</td>
+              <td><span class="pill pill-green">Yes — CID survives IP change</span></td>
+            </tr>
+            <tr>
+              <td class="label-col">Binary Protocol</td>
+              <td>Text</td>
+              <td>Text</td>
+              <td><span class="pill pill-blue">Binary frames</span></td>
+              <td><span class="pill pill-blue">Binary frames</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="section-grid">
+      <div class="token-diagram">
+        <h3>🔄 HTTP/1.1 — The Problem</h3>
+        <div style="display:flex;flex-direction:column;gap:0;position:relative;padding-left:20px;">
+          <div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent5);border-radius:2px;"></div>
+          <div class="tl-step error">
+            <div class="tl-title">One Request at a Time Per Connection</div>
+            <div class="tl-desc">HTTP/1.1 keep-alive reuses the TCP connection, but each request must complete before the next starts (head-of-line blocking). A slow response blocks all subsequent requests on that connection.</div>
+          </div>
+          <div class="tl-step error">
+            <div class="tl-title">Browser Workaround: 6 Parallel Connections</div>
+            <div class="tl-desc">Browsers open 6 parallel TCP connections per origin to work around HOL blocking. But: 6 × TCP + TLS handshakes, 6 × congestion control instances, high overhead. Domain sharding (static1.google.com, static2...) was a hack to get more connections.</div>
+          </div>
+          <div class="tl-step warn">
+            <div class="tl-title">Pipelining — Failed Attempt</div>
+            <div class="tl-desc">HTTP/1.1 pipelining: send multiple requests without waiting for responses. Sounds great — but responses must come back in ORDER (HOL blocking still exists). Buggy proxy support killed it in practice. Almost no one uses it.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="token-diagram">
+        <h3>⚡ HTTP/2 — The Solution</h3>
+        <div style="display:flex;flex-direction:column;gap:0;position:relative;padding-left:20px;">
+          <div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent3);border-radius:2px;"></div>
+          <div class="tl-step success">
+            <div class="tl-title">Multiplexing — Many Streams, One TCP</div>
+            <div class="tl-desc">HTTP/2 splits data into binary frames. Multiple streams interleaved on one TCP connection. No head-of-line blocking at the HTTP level — a slow response on stream 3 doesn't block stream 7. One connection per origin.</div>
+          </div>
+          <div class="tl-step success">
+            <div class="tl-title">HPACK Header Compression</div>
+            <div class="tl-desc">Headers compressed with HPACK. Static table for common headers (e.g., :method: GET). Dynamic table builds shared state between client/server. Repeated headers (Cookie, User-Agent) sent as index references — huge savings.</div>
+          </div>
+          <div class="tl-step warn">
+            <div class="tl-title">TCP HOL Blocking Still Exists</div>
+            <div class="tl-desc">HTTP/2 solved application-level HOL but not TCP-level. If one TCP packet is lost, ALL HTTP/2 streams stall until that packet is retransmitted. With 1% packet loss, HTTP/2 can perform worse than HTTP/1.1 with 6 connections. HTTP/3 (QUIC) solves this.</div>
+          </div>
+          <div class="tl-step info">
+            <div class="tl-title">HTTP/2 Server Push</div>
+            <div class="tl-desc">Server can proactively push resources (CSS, JS) before browser requests them. Browser GET / → server pushes style.css, app.js simultaneously. Eliminates round-trip for critical assets. In practice: hard to implement correctly, often wasted if browser already cached. Largely replaced by &lt;link rel="preload"&gt; hints.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="info-box" style="margin-top:20px">
+      <h4><span class="dot" style="background:var(--accent4)"></span> HTTP/3 — QUIC Explained</h4>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin-top:16px;">
+        <div>
+          <div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--accent4);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;">Problem Solved</div>
+          <div style="font-size:11px;color:var(--muted);line-height:1.6;">With HTTP/2 over TCP, a single lost packet stalls ALL streams until retransmission — TCP's reliability layer has no concept of independent streams. QUIC solves this: each stream is independent at the QUIC layer, so a lost packet for stream 5 only blocks stream 5, not streams 1–4 or 6+. Also: QUIC's Connection ID survives IP address changes (WiFi → 4G) without a full reconnect.</div>
+        </div>
+        <div>
+          <div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--accent4);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;">Built on UDP</div>
+          <div style="font-size:11px;color:var(--muted);line-height:1.6;">QUIC runs on UDP (port 443) and implements its own reliability, ordering, and congestion control. TLS 1.3 is baked directly into QUIC — can't run QUIC without encryption. Combined handshake: QUIC + TLS in 1 RTT, or 0-RTT for repeat connections.</div>
+        </div>
+        <div>
+          <div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--accent4);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;">Adoption</div>
+          <div style="font-size:11px;color:var(--muted);line-height:1.6;">Google has used QUIC internally since 2012 (gQUIC). IETF standardized HTTP/3 + QUIC in 2022 (RFC 9114 / 9000). Google, Cloudflare, Meta all serve HTTP/3. ~30% of web traffic is HTTP/3. Negotiated via Alt-Svc: h3=":443" response header.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /wrapper -->
+
+<button class="theme-btn" onclick="toggleTheme()" id="themeBtn">
+  <span class="icon">🌙</span><span id="themeLabel">Light Mode</span>
+</button>
+
+<script>
+  function showTab(name) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.flow').forEach(f => f.classList.remove('active'));
+    document.querySelector(`[onclick="showTab('${name}')"]`).classList.add('active');
+    document.getElementById(`tab-${name}`).classList.add('active');
+  }
+  function toggleTheme() {
+    const html = document.documentElement;
+    const isLight = html.getAttribute('data-theme') === 'light';
+    html.setAttribute('data-theme', isLight ? 'dark' : 'light');
+    document.getElementById('themeLabel').textContent = isLight ? 'Light Mode' : 'Dark Mode';
+    document.querySelector('#themeBtn .icon').textContent = isLight ? '🌙' : '☀️';
+    localStorage.setItem('theme', isLight ? 'dark' : 'light');
+  }
+  (function() {
+    const saved = localStorage.getItem('theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', saved);
+    if (saved === 'light') {
+      document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('themeLabel').textContent = 'Dark Mode';
+        document.querySelector('#themeBtn .icon').textContent = '☀️';
+      });
+    }
+  })();
+</script>
+</body>
+</html>

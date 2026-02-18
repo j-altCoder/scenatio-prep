@@ -22,6 +22,7 @@
   --rbac:  #f472b6;
   --sched: #a78bfa;
   --rag:   #34d399;
+  --cs:    #fb923c;
 }
 [data-theme="light"] {
   --bg:  #f0f2f9;
@@ -37,6 +38,7 @@
   --rbac:  #db2777;
   --sched: #7c3aed;
   --rag:   #059669;
+  --cs:    #ea580c;
 }
 
 /* ─── Reset ─────────────────────────────────────────────── */
@@ -110,6 +112,7 @@ body::after{
 .nav-pill.np-rbac:hover {border-color:var(--rbac); color:var(--rbac);}
 .nav-pill.np-sched:hover{border-color:var(--sched);color:var(--sched);}
 .nav-pill.np-rag:hover  {border-color:var(--rag);  color:var(--rag);}
+.nav-pill.np-cs:hover   {border-color:var(--cs);   color:var(--cs);}
 
 .theme-btn{
   display:flex;align-items:center;gap:7px;
@@ -169,7 +172,7 @@ body::after{
 
 /* ─── Card grids ────────────────────────────────────────── */
 .cards-top{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:14px;}
-.cards-bot{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;}
+.cards-bot{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
 
 /* ─── Card ──────────────────────────────────────────────── */
 .card{
@@ -184,12 +187,14 @@ body::after{
 .cards-top .card:nth-child(3){animation-delay:.2s;}
 .cards-bot .card:nth-child(1){animation-delay:.26s;}
 .cards-bot .card:nth-child(2){animation-delay:.32s;}
+.cards-bot .card:nth-child(3){animation-delay:.38s;}
 
 .card[data-ac="auth"] {--ac:var(--auth);}
 .card[data-ac="oauth"]{--ac:var(--oauth);}
 .card[data-ac="rbac"] {--ac:var(--rbac);}
 .card[data-ac="sched"]{--ac:var(--sched);}
 .card[data-ac="rag"]  {--ac:var(--rag);}
+.card[data-ac="cs"]   {--ac:var(--cs);}
 
 /* glow blob */
 .card::before{
@@ -256,7 +261,7 @@ footer{
   display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;
 }
 .ft-left{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;color:var(--mu);}
-.ft-links{display:flex;gap:16px;}
+.ft-links{display:flex;gap:16px;flex-wrap:wrap;}
 .ft-links a{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.5px;color:var(--mu);text-decoration:none;transition:color .15s;}
 .ft-links a:hover{color:var(--auth);}
 
@@ -264,7 +269,7 @@ footer{
 @keyframes fadeUp{from{opacity:0;transform:translateY(18px);}to{opacity:1;transform:translateY(0);}}
 
 /* ─── Responsive ────────────────────────────────────────── */
-@media(max-width:900px){.cards-top{grid-template-columns:repeat(2,1fr);}.cards-bot{grid-template-columns:1fr;}.topbar-nav{display:none;}}
+@media(max-width:900px){.cards-top{grid-template-columns:repeat(2,1fr);}.cards-bot{grid-template-columns:repeat(2,1fr);}.topbar-nav{display:none;}}
 @media(max-width:600px){
   .wrap{padding:0 18px 80px;}
   .cards-top,.cards-bot{grid-template-columns:1fr;}
@@ -294,6 +299,7 @@ footer{
       <a class="nav-pill np-rbac"  href="rbac-diagram.html">RBAC</a>
       <a class="nav-pill np-sched" href="scheduler-diagram.html">Scheduler</a>
       <a class="nav-pill np-rag"   href="rag-chat-diagram.html">RAG Chat</a>
+      <a class="nav-pill np-cs"    href="client-server-diagram.html">Client-Server</a>
     </div>
     <button class="theme-btn" onclick="toggleTheme()" id="themeBtn">
       <span id="themeIcon">🌙</span><span id="themeLabel">Light</span>
@@ -302,7 +308,7 @@ footer{
 
   <!-- Hero -->
   <section class="hero">
-    <div class="hero-eyebrow">MERN Stack · Production Architecture · 5 Docs</div>
+    <div class="hero-eyebrow">MERN Stack · Production Architecture · 6 Docs</div>
     <h1 class="hero-title">
       Architecture<br>
       <span class="accent">Reference</span>
@@ -310,12 +316,13 @@ footer{
     <p class="hero-body">
       End-to-end implementation guides for a production MERN stack — authentication,
       OAuth, role-based access, social media scheduling with FFmpeg transcoding,
-      and a RAG chat API powered by LangChain &amp; Azure OpenAI.
+      a RAG chat API powered by LangChain &amp; Azure OpenAI, and a deep dive into
+      the client-server model from URL to rendered page.
       Every diagram has light &amp; dark themes and tabbed sections.
     </p>
     <div class="hero-stats">
-      <div class="hstat"><div class="hstat-n">5</div><div class="hstat-l">Diagrams</div></div>
-      <div class="hstat"><div class="hstat-n">38</div><div class="hstat-l">Tabs</div></div>
+      <div class="hstat"><div class="hstat-n">6</div><div class="hstat-l">Diagrams</div></div>
+      <div class="hstat"><div class="hstat-n">45</div><div class="hstat-l">Tabs</div></div>
       <div class="hstat"><div class="hstat-n">6</div><div class="hstat-l">Platforms</div></div>
       <div class="hstat"><div class="hstat-n">☀/🌙</div><div class="hstat-l">Themes</div></div>
     </div>
@@ -366,7 +373,7 @@ footer{
 
   </div>
 
-  <!-- Row 2: 2 cards -->
+  <!-- Row 2: 3 cards -->
   <div class="cards-bot">
 
     <a class="card" data-ac="sched" href="scheduler-diagram.html">
@@ -393,6 +400,20 @@ footer{
         <span class="tag">Vector Search</span><span class="tag">LangChain</span>
         <span class="tag">Azure OpenAI</span><span class="tag">SSE Streaming</span>
         <span class="tag">Chroma</span>
+      </div>
+      <div class="card-cta"><span>Open Diagram</span><span class="cta-arrow">→</span></div>
+    </a>
+
+    <a class="card" data-ac="cs" href="client-server-diagram.html">
+      <div class="card-idx">06 &nbsp;CLIENT-SERVER</div>
+      <span class="card-emoji">🌐</span>
+      <div class="card-title">Client-Server Model</div>
+      <p class="card-desc">What really happens when you type google.com — from the first keystroke through DNS resolution, TCP 3-way handshake, TLS 1.3 with Diffie-Hellman, HTTP/2 multiplexing, to incremental HTML parsing and the full browser render pipeline.</p>
+      <div class="card-tags">
+        <span class="tag">DNS</span><span class="tag">TCP Handshake</span>
+        <span class="tag">TLS 1.3</span><span class="tag">HTTP/2 vs HTTP/3</span>
+        <span class="tag">QUIC</span><span class="tag">DOM Rendering</span>
+        <span class="tag">HPACK</span>
       </div>
       <div class="card-cta"><span>Open Diagram</span><span class="cta-arrow">→</span></div>
     </a>
@@ -426,13 +447,14 @@ footer{
 
   <!-- Footer -->
   <footer>
-    <div class="ft-left">MERN ARCHITECTURE DOCS · 5 FILES · LIGHT &amp; DARK THEMES</div>
+    <div class="ft-left">MERN ARCHITECTURE DOCS · 6 FILES · LIGHT &amp; DARK THEMES</div>
     <div class="ft-links">
       <a href="auth-flow-diagram.html">Auth</a>
       <a href="oauth-flow-diagram.html">OAuth</a>
       <a href="rbac-diagram.html">RBAC</a>
       <a href="scheduler-diagram.html">Scheduler</a>
       <a href="rag-chat-diagram.html">RAG Chat</a>
+      <a href="client-server-diagram.html">Client-Server</a>
     </div>
   </footer>
 
